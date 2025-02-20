@@ -1,0 +1,13 @@
+#MQTT Credentials
+VITE_MQTT_HOST='3a6152cff8674790bcad3c3c23ee9a34.s1.eu.hivemq.cloud'
+VITE_MQTT_PORT='8884'
+VITE_MQTT_PROTOCOL='mqtts'
+VITE_MQTT_USERNAME='admin'
+VITE_MQTT_PASSWORD= 'Water123456'
+
+#Database Credentials
+VITE_DB_NAME='watersensor(mysql)'
+VITE_DB_USER='root'
+VITE_DB_PASSWORD=''
+VITE_DB_PORT='3306'
+VITE_DB_HOST='localhost'
