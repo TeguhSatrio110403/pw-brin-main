@@ -68,7 +68,7 @@ const Feeds = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:3000/getCurrentData', {
+        const response = await fetch('https://server-water-sensors-production.up.railway.app/getCurrentData', {
           headers: {
             'Last-Timestamp': sensorData.lastTimestamp || '0'
           }
@@ -119,6 +119,10 @@ const Feeds = () => {
     const interval = setInterval(fetchData, 1000);
     return () => clearInterval(interval);
   }, [sensorData.lastTimestamp]);
+
+  useEffect(() => {
+    console.log('Data Speed:', sensorData.speed);
+  }, [sensorData.speed]);
 
   const getPageData = (data, timestamps, chartType) => {
     const startIndex = (currentPages[chartType] - 1) * dataPerPage;
@@ -322,14 +326,14 @@ const Feeds = () => {
         ticks: {
           stepSize: 10,
           callback: function(value) {
-            return value + ' m/s²';
+            return value + ' m/s';
           }
         }
       }
     }
   };
 
-   const speedOptions = {
+  const speedOptions = {
     ...options,
     scales: {
       y: {
@@ -440,7 +444,6 @@ const Feeds = () => {
         <PaginationControls chartType="speed" />
       </div>
 
-      
     </div>
   );
 };
