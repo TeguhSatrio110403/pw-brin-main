@@ -1,34 +1,10 @@
 import React, { createContext, useEffect, useState } from 'react';
-// import Connection from './Connection';
-// import Publisher from './Publisher';
-// import Subscriber from './Subscriber';
-// import Receiver from './Receiver';
-// import mqtt from 'mqtt';
 import { Card, Modal } from 'react-bootstrap';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-// import axios from 'axios';
-
-// export const QosOption = createContext([]);
-// const qosOption = [
-//   {
-//     label: '0',
-//     value: 0,
-//   },
-//   {
-//     label: '1',
-//     value: 1,
-//   },
-//   {
-//     label: '2',
-//     value: 2,
-//   },
-// ];
 
 const HookMqtt = () => {
   const [client, setClient] = useState(null);
-  // const [isSubed, setIsSub] = useState(false);
   const [payload, setPayload] = useState({});
-  // const [connectStatus, setConnectStatus] = useState('Connect');
   
   const [accelX, setAccelX] = useState(0);
   const [accelY, setAccelY] = useState(0);
@@ -38,37 +14,17 @@ const HookMqtt = () => {
   const [turbidity, setTurbidity] = useState(0);
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongitude] = useState(0);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(new Date().toLocaleString());
   
-  const [showModal, setShowModal] = useState(false); // Modal state
-
-  // const mqttConnect = (host, mqttOption) => {
-  //   setConnectStatus('Connecting');
-  //   setClient(mqtt.connect(host, mqttOption));
-  // };
+  const [showModal, setShowModal] = useState(false);
+  const [speed, setSpeed] = useState(0);
 
   useEffect(() => {
     if (client) {
-      // client.on('connect', () => {
-      //   setConnectStatus('Connected');
-      //   console.log('connection successful');
-      // });
-
-      // client.on('error', (err) => {
-      //   console.error('Connection error: ', err);
-      //   client.end();
-      // });
-
-      // client.on('reconnect', () => {
-      //   setConnectStatus('Reconnecting');
-      // });
-
       client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
-        
         setPayload(payload);
       
-        // Update state with the received values or default to 0 if undefined
         setAccelX(payload.accelX || 0);
         setAccelY(payload.accelY || 0);
         setAccelZ(payload.accelZ || 0);
@@ -77,105 +33,57 @@ const HookMqtt = () => {
         setTurbidity(payload.turbidity || 0);
         setLatitude(payload.latitude || 0);
         setLongitude(payload.longitude || 0);
-        setDate(payload.date || new Date().toLocaleString());
-
-        const dataToSend = {
-          accelX: payload.accelX || 0,
-          accelY: payload.accelY || 0,
-          accelZ: payload.accelZ || 0,
-          ph: payload.ph || 0,
-          temperature: payload.temp || 0,
-          turbidity: payload.turbidity || 0,
-          latitude: payload.latitude || 0,
-          longitude: payload.longitude || 0,
-          timestamp: payload.date || new Date().toLocaleString(),
-        };
-      
-      //   axios.post('http://localhost:3000/sensors', dataToSend)
-      //     .then(response => {
-      //       console.log('POST request successful:', response.data);
-      //     })
-      //     .catch(error => {
-      //       console.error('Error sending POST request:', error);
-      //     });
-    
-      //   console.log(`received message: ${message} from topic: ${topic}`);
+        setSpeed(payload.speed || 0);
       });
     }
   }, [client]);
 
-  // const mqttDisconnect = () => {
-  //   if (client) {
-  //     try {
-  //       client.end(false, () => {
-  //         setConnectStatus('Connect');
-  //         console.log('disconnected successfully');
-  //       });
-  //     } catch (error) {
-  //       console.log('disconnect error:', error);
-  //     }
-  //   }
-  // };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // const response = await fetch('http://localhost:3000/getCurrentData');
+        const response = await fetch('https://server-water-sensors-production.up.railway.app'); //url server
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const { message } = result.data;
+          
+          setAccelX(message.accel_x || 0);
+          setAccelY(message.accel_y || 0);
+          setAccelZ(message.accel_z || 0);
+          setPh(parseFloat(message.ph) || 0);
+          setTemp(message.temperature || 0);
+          setTurbidity(message.turbidity || 0);
+          setSpeed(message.speed || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
 
-  // const mqttPublish = (context) => {
-  //   if (client) {
-  //     const { topic, qos, payload } = context;
-  //     client.publish(topic, payload, { qos }, (error) => {
-  //       if (error) {
-  //         console.log('Publish error: ', error);
-  //       }
-  //     });
-  //   }
-  // };
+    const interval = setInterval(fetchData, 5000);
+    fetchData();
+    return () => clearInterval(interval);
+  }, []);
 
-  // const mqttSub = (subscription) => {
-  //   if (client) {
-  //     const { topic, qos } = subscription;
-  //     client.subscribe(topic, { qos }, (error) => {
-  //       if (error) {
-  //         console.log('Subscribe to topics error', error);
-  //         return;
-  //       }
-  //       console.log(`Subscribe to topics: ${topic}`);
-  //       setIsSub(true);
-  //     });
-  //   }
-  // };
+  // Update timestamp every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDate(new Date().toLocaleString());
+    }, 1000);
 
-  // const mqttUnSub = (subscription) => {
-  //   if (client) {
-  //     const { topic, qos } = subscription;
-  //     client.unsubscribe(topic, { qos }, (error) => {
-  //       if (error) {
-  //         console.log('Unsubscribe error', error);
-  //         return;
-  //       }
-  //       console.log(`unsubscribed topic: ${topic}`);
-  //       setIsSub(false);
-  //     });
-  //   }
-  // };
+    return () => clearInterval(interval);
+  }, []);
 
   const handleClose = () => setShowModal(false);
   const handleShow = () => setShowModal(true);
 
   return (
     <>
-      {/* <Connection
-        connect={mqttConnect}
-        disconnect={mqttDisconnect}
-        connectBtn={connectStatus}
-      />
-      <QosOption.Provider value={qosOption}>
-        <Subscriber sub={mqttSub} unSub={mqttUnSub} showUnsub={isSubed} />
-        <Publisher publish={mqttPublish} />
-      </QosOption.Provider> */}
-
       <button className="btn-mulaibaru" onClick={handleShow}>
         Data Langsung <i className="bi bi-speedometer speedometer-icon"></i>
       </button>
 
-      {/* Modal */}
       <Modal show={showModal} onHide={handleClose} size="lg" aria-labelledby="contained-modal-title-vcenter" centered>
         <Modal.Header closeButton>
           <Modal.Title>Data Langsung Sensor</Modal.Title>
@@ -308,6 +216,30 @@ const HookMqtt = () => {
                         styles={buildStyles({
                           textColor: 'black',
                           pathColor: 'red',
+                          trailColor: 'black',
+                        })}
+                      />
+                    </div><br />
+                    <h5 className="text-center">{date}</h5>
+                  </Card.Text>
+                </Card.Body>
+              </Card>
+            </div>
+          </div>
+
+          <div className="box-feeds row d-flex justify-content-center mx-auto">
+            <div className="col-12 col-md-6 col-lg-4 mx-auto">
+              <h1 className="text-center">Speed</h1>
+              <Card className="card mx-auto">
+                <Card.Body>
+                  <Card.Text>
+                    <div className="box-odometer">
+                      <CircularProgressbar
+                        value={speed}
+                        text={`${speed} m/s`}
+                        styles={buildStyles({
+                          textColor: 'black',
+                          pathColor: '#2ecc71',
                           trailColor: 'black',
                         })}
                       />

@@ -140,8 +140,8 @@ const FeedModal = ({ show, onHide, feed }) => {
           {feed && (
             <>
               <h4>{feed.name}</h4>
-              <p>Alamat : {feed.address}</p>
-              <p>Tanggal Update : {feed.date}</p>
+              <p>{feed.address}</p>
+              <p>{feed.date}</p>
               {/* <p>
                 Status: <strong>{feed.status}</strong>
               </p> */}

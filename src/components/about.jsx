@@ -1,4 +1,8 @@
-const about = () => {
+import React from 'react';
+import Accordion from 'react-bootstrap/Accordion';
+import 'bootstrap/dist/css/bootstrap.min.css'; // Pastikan Anda mengimpor CSS Bootstrap
+
+const About = () => {
   return (
     <div className="About">
       <h1 className="heading">
@@ -53,8 +57,35 @@ const about = () => {
           </div>
         </div>
       </div>
+
+      {/* Section FAQ */}
+      <div className="faq-section mb-4">
+        <h1 className="heading">
+          <center><b>FAQ</b></center>
+        </h1>
+        <Accordion defaultActiveKey="0">
+          <Accordion.Item eventKey="0">
+            <Accordion.Header>Apa tujuan dari platform ini?</Accordion.Header>
+            <Accordion.Body>
+              Platform ini bertujuan untuk memfasilitasi pemantauan kualitas air sungai secara real-time menggunakan teknologi IoT dan sensor, sehingga dapat memberikan data yang akurat dan relevan untuk penelitian dan pengambilan keputusan.
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="1">
+            <Accordion.Header>Bagaimana cara mengakses data kualitas air?</Accordion.Header>
+            <Accordion.Body>
+              Data kualitas air dapat diakses melalui platform ini dengan mudah. Anda dapat melihat data seperti turbidity, pH, dan suhu air secara real-time.
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="2">
+            <Accordion.Header>Siapa yang dapat menggunakan platform ini?</Accordion.Header>
+            <Accordion.Body>
+              Platform ini dapat digunakan oleh para peneliti, pemerintah, dan masyarakat umum yang tertarik untuk memantau kualitas air sungai.
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
+      </div>
     </div>
   );
 }
 
-export default about
+export default About;

@@ -3,6 +3,7 @@ import { useState } from "react";
 
 const NavBar = () => {
   const [showModal, setShowModal] = useState(false); // State untuk mengontrol visibilitas modal
+  const [showNavModal, setShowNavModal] = useState(false); // State baru untuk modal navigasi
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true"; // Periksa status login dari localStorage
 
   const handleLogout = () => {
@@ -25,14 +26,24 @@ const NavBar = () => {
               <img src="./logo.png" alt="Logo" className="logo" />
             </Nav.Link>
           )}
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
+          
+          {/* Ganti Navbar.Toggle dengan button custom */}
+          <Button 
+            className="d-lg-none" 
+            onClick={() => setShowNavModal(true)}
+            variant="outline-dark"
+          >
+            <i className="bi bi-list"></i>
+          </Button>
+
+          {/* Desktop navigation */}
+          <div className="d-none d-lg-block">
             <Nav className="ms-auto">
               {isLoggedIn ? (
                 <>
                   <Nav.Link href="/dashboard" className="item-list">Dashboard</Nav.Link>
-                  <Nav.Link href="/feeds" className="item-list">Feeds</Nav.Link>
                   <Nav.Link href="/analisis" className="item-list">Analisis</Nav.Link>
+                  <Nav.Link href="/feeds" className="item-list">Feeds</Nav.Link>
                   <Nav.Link href="/about" className="item-list">Tentang</Nav.Link>
                   <Nav.Link onClick={() => setShowModal(true)} className="item-list">Logout</Nav.Link>
                 </>
@@ -47,14 +58,53 @@ const NavBar = () => {
                     >
                       <i className="bi bi-cloud-arrow-down"></i> Unduh Aplikasi
                     </Button>
-
                   </Nav>
                 </>
               )}
             </Nav>
-          </Navbar.Collapse>
+          </div>
         </Container>
       </Navbar>
+
+      {/* Modal Navigation untuk tampilan mobile */}
+      <Modal 
+        show={showNavModal} 
+        onHide={() => setShowNavModal(false)}
+        fullscreen="lg-down"
+      >
+        <Modal.Header closeButton>
+          {/* <Modal.Title>Menu</Modal.Title> */}
+        </Modal.Header>
+        <Modal.Body>
+          <Nav className="flex-column">
+            {isLoggedIn ? (
+              <>
+                <Nav.Link href="/dashboard" className="item-list py-3">Dashboard</Nav.Link>
+                <Nav.Link href="/analisis" className="item-list py-3">Analisis</Nav.Link>
+                <Nav.Link href="/feeds" className="item-list py-3">Feeds</Nav.Link>
+                <Nav.Link href="/about" className="item-list py-3">Tentang</Nav.Link>
+                <Nav.Link onClick={() => {
+                  setShowNavModal(false);
+                  setShowModal(true);
+                }} className="item-list py-3">Logout</Nav.Link>
+              </>
+            ) : (
+              <>
+                <Nav.Link href="/about" className="item-list py-3">Tentang</Nav.Link>
+                <div className="mt-3">
+                  <Button
+                    variant="danger"
+                    href="/download"
+                    className="unduh-aplikasi-button w-100"
+                  >
+                    <i className="bi bi-cloud-arrow-down"></i> Unduh Aplikasi
+                  </Button>
+                </div>
+              </>
+            )}
+          </Nav>
+        </Modal.Body>
+      </Modal>
 
       {/* Modal untuk konfirmasi logout */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>

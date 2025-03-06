@@ -1,19 +1,19 @@
 import { Routes, Route } from "react-router-dom";
 import NavigationBar from "./components/navigationBar";
-// import FooterBar from "./components/FooterBar";
+import Footer from "./components/FooterBar";
 
 import Login from "./components/login";
 import Home from "./components/home";
 import Dashboard from "./components/dashboard";
-import Feeds from "./components/feeds";
 import Analisis from "./components/analisis";
+import Feeds from "./components/feeds";
 import About from "./components/about";
 
 import ProtectedRoute from "./utils/ProtectedRoute";
 
 function App() {
   return (
-    <div>
+    <div className="app-container">
       <NavigationBar />
 
       <Routes>
@@ -34,7 +34,7 @@ function App() {
         <Route path="/about" element={<About />} />
       </Routes>
 
-      {/* <FooterBar /> */}
+      {/* <Footer /> */}
     </div>
   );
 }
