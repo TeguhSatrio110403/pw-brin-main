@@ -23,46 +23,99 @@ ChartJS.register(
 );
 
 const Feeds = () => {
+  // Fungsi helper untuk memastikan nilai selalu array
+  const ensureArray = (value) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [];
+  };
+
+  // Inisialisasi state dengan struktur yang aman
   const [sensorData, setSensorData] = useState(() => {
-    // Mengambil data dari localStorage saat inisialisasi
-    const savedData = localStorage.getItem('sensorData');
-    return savedData ? JSON.parse(savedData) : {
-      accel_x: [],
-      accel_y: [],
-      accel_z: [],
-      ph: [],
-      temperature: [],
-      turbidity: [],
-      speed: [],
-      timestamps: [],
-      lastTimestamp: null
-    };
+    try {
+      const savedData = localStorage.getItem('sensorData');
+      const parsedData = savedData ? JSON.parse(savedData) : {};
+      
+      return {
+        accel_x: ensureArray(parsedData.accel_x),
+        accel_y: ensureArray(parsedData.accel_y),
+        accel_z: ensureArray(parsedData.accel_z),
+        ph: ensureArray(parsedData.ph),
+        temperature: ensureArray(parsedData.temperature),
+        turbidity: ensureArray(parsedData.turbidity),
+        speed: ensureArray(parsedData.speed),
+        timestamps: ensureArray(parsedData.timestamps),
+        lastTimestamp: parsedData.lastTimestamp || null
+      };
+    } catch (error) {
+      console.error("Error parsing sensorData from localStorage:", error);
+      return {
+        accel_x: [],
+        accel_y: [],
+        accel_z: [],
+        ph: [],
+        temperature: [],
+        turbidity: [],
+        speed: [],
+        timestamps: [],
+        lastTimestamp: null
+      };
+    }
   });
 
   const [currentPages, setCurrentPages] = useState(() => {
-    // Mengambil state halaman dari localStorage
-    const savedPages = localStorage.getItem('currentPages');
-    return savedPages ? JSON.parse(savedPages) : {
-      accel_x: 1,
-      accel_y: 1,
-      accel_z: 1,
-      ph: 1,
-      temperature: 1,
-      turbidity: 1,
-      speed: 1
-    };
+    try {
+      const savedPages = localStorage.getItem('currentPages');
+      const parsedPages = savedPages ? JSON.parse(savedPages) : {};
+      
+      return {
+        accel_x: parsedPages.accel_x || 1,
+        accel_y: parsedPages.accel_y || 1,
+        accel_z: parsedPages.accel_z || 1,
+        ph: parsedPages.ph || 1,
+        temperature: parsedPages.temperature || 1,
+        turbidity: parsedPages.turbidity || 1,
+        speed: parsedPages.speed || 1
+      };
+    } catch (error) {
+      console.error("Error parsing currentPages from localStorage:", error);
+      return {
+        accel_x: 1,
+        accel_y: 1,
+        accel_z: 1,
+        ph: 1,
+        temperature: 1,
+        turbidity: 1,
+        speed: 1
+      };
+    }
   });
   
   const dataPerPage = 10;
 
+  // Fungsi untuk menghitung jumlah halaman
+  const calculateTotalPages = (dataArray) => {
+    if (!dataArray || !Array.isArray(dataArray)) {
+      return 1;
+    }
+    
+    const count = dataArray.length;
+    return Math.max(1, Math.ceil(count / dataPerPage));
+  };
+
   useEffect(() => {
-    // Menyimpan data ke localStorage setiap kali sensorData berubah
-    localStorage.setItem('sensorData', JSON.stringify(sensorData));
+    try {
+      localStorage.setItem('sensorData', JSON.stringify(sensorData));
+    } catch (error) {
+      console.error("Error saving sensorData to localStorage:", error);
+    }
   }, [sensorData]);
 
   useEffect(() => {
-    // Menyimpan state halaman ke localStorage
-    localStorage.setItem('currentPages', JSON.stringify(currentPages));
+    try {
+      localStorage.setItem('currentPages', JSON.stringify(currentPages));
+    } catch (error) {
+      console.error("Error saving currentPages to localStorage:", error);
+    }
   }, [currentPages]);
 
   useEffect(() => {
@@ -80,33 +133,33 @@ const Feeds = () => {
         
         const result = await response.json();
         
-        if (result.success && result.data.message && (!sensorData.lastTimestamp || result.data.timestamp > sensorData.lastTimestamp)) {
+        if (result.success && result.data && result.data.message && 
+            (!sensorData.lastTimestamp || result.data.timestamp > sensorData.lastTimestamp)) {
+          
           const timestamp = new Date(result.data.timestamp).toLocaleTimeString();
+          
           setSensorData(prevData => {
+            // Keamanan data
+            const prevAccelX = ensureArray(prevData.accel_x);
+            const prevAccelY = ensureArray(prevData.accel_y);
+            const prevAccelZ = ensureArray(prevData.accel_z);
+            const prevPh = ensureArray(prevData.ph);
+            const prevTemp = ensureArray(prevData.temperature);
+            const prevTurb = ensureArray(prevData.turbidity);
+            const prevSpeed = ensureArray(prevData.speed);
+            const prevTimestamps = ensureArray(prevData.timestamps);
+            
             const newData = {
-              ...prevData,
-              accel_x: [...prevData.accel_x, result.data.message.accel_x],
-              accel_y: [...prevData.accel_y, result.data.message.accel_y],
-              accel_z: [...prevData.accel_z, result.data.message.accel_z],
-              ph: [...prevData.ph, parseFloat(result.data.message.ph)],
-              temperature: [...prevData.temperature, parseFloat(result.data.message.temperature)],
-              turbidity: [...prevData.turbidity, parseFloat(result.data.message.turbidity)],
-              speed: [...prevData.speed, parseFloat(result.data.message.speed)],
-              timestamps: [...prevData.timestamps, timestamp],
+              accel_x: [...prevAccelX, result.data.message.accel_x],
+              accel_y: [...prevAccelY, result.data.message.accel_y],
+              accel_z: [...prevAccelZ, result.data.message.accel_z],
+              ph: [...prevPh, parseFloat(result.data.message.ph || 0)],
+              temperature: [...prevTemp, parseFloat(result.data.message.temperature || 0)],
+              turbidity: [...prevTurb, parseFloat(result.data.message.turbidity || 0)],
+              speed: [...prevSpeed, parseFloat(result.data.message.speed || 0)],
+              timestamps: [...prevTimestamps, timestamp],
               lastTimestamp: result.data.timestamp
             };
-            
-            const totalPages = Math.ceil(newData.timestamps.length / dataPerPage);
-            setCurrentPages(prev => ({ 
-              ...prev, 
-              accel_x: totalPages, 
-              accel_y: totalPages, 
-              accel_z: totalPages, 
-              ph: totalPages, 
-              temperature: totalPages, 
-              turbidity: totalPages,
-              speed: totalPages
-            }));
             
             return newData;
           });
@@ -124,25 +177,45 @@ const Feeds = () => {
     console.log('Data Speed:', sensorData.speed);
   }, [sensorData.speed]);
 
-  const getPageData = (data, timestamps, chartType) => {
-    const startIndex = (currentPages[chartType] - 1) * dataPerPage;
-    const endIndex = startIndex + dataPerPage;
+  // Pendekatan baru untuk pagination yang tidak bergantung pada length
+  const getPageData = (dataArray, timestampsArray, chartType) => {
+    // Memastikan data adalah array yang valid
+    const safeData = ensureArray(dataArray);
+    const safeTimestamps = ensureArray(timestampsArray);
     
-    // Membuat array label berdasarkan indeks data
-    const labels = Array.from(
-      { length: Math.min(dataPerPage, data.length - startIndex) },
-      (_, i) => (startIndex + i + 1).toString()
-    );
+    // Gunakan nullish coalescing untuk menghindari nilai undefined/null
+    const page = currentPages[chartType] ?? 1;
+    
+    const startIndex = (page - 1) * dataPerPage;
+    let endIndex = startIndex + dataPerPage;
+    
+    // Pastikan indeks selalu valid
+    if (startIndex >= safeData.length) {
+      return {
+        data: [],
+        labels: Array(dataPerPage).fill('').map((_, i) => (i + 1).toString()),
+        tooltipLabels: []
+      };
+    }
+    
+    // Membatasi endIndex pada ukuran array
+    endIndex = Math.min(endIndex, safeData.length);
+    
+    // Membuat array label yang aman
+    const labels = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      labels.push((i + 1).toString());
+    }
     
     return {
-      data: data.slice(startIndex, endIndex),
+      data: safeData.slice(startIndex, endIndex),
       labels: labels,
-      tooltipLabels: timestamps.slice(startIndex, endIndex)
+      tooltipLabels: safeTimestamps.slice(startIndex, endIndex)
     };
   };
 
-  const dataTemplate = (label, data, chartType) => {
-    const pageData = getPageData(data, sensorData.timestamps, chartType);
+  const dataTemplate = (label, dataArray, chartType) => {
+    const pageData = getPageData(dataArray, sensorData.timestamps, chartType);
     
     // Konfigurasi warna untuk setiap jenis chart
     const chartColors = {
@@ -161,8 +234,8 @@ const Feeds = () => {
         {
           label: label,
           data: pageData.data,
-          borderColor: chartColors[chartType],
-          backgroundColor: `${chartColors[chartType]}1A`, // Menambahkan transparansi 10%
+          borderColor: chartColors[chartType] || "#000000",
+          backgroundColor: `${chartColors[chartType] || "#000000"}1A`,
           tooltipLabels: pageData.tooltipLabels,
         },
       ],
@@ -171,21 +244,28 @@ const Feeds = () => {
 
   const handlePageChange = (chartType, direction) => {
     setCurrentPages(prev => {
-      const totalPages = Math.ceil(sensorData.timestamps.length / dataPerPage);
+      const dataArray = ensureArray(sensorData[chartType]);
+      const totalPages = calculateTotalPages(dataArray);
+      const currentPage = prev[chartType] || 1;
+      
       const newPage = direction === 'next' 
-        ? Math.min(prev[chartType] + 1, totalPages)
-        : Math.max(prev[chartType] - 1, 1);
+        ? Math.min(currentPage + 1, totalPages)
+        : Math.max(currentPage - 1, 1);
+      
       return { ...prev, [chartType]: newPage };
     });
   };
 
   const PaginationControls = ({ chartType }) => {
-    const totalPages = Math.ceil(sensorData.timestamps.length / dataPerPage);
-    const currentPage = currentPages[chartType];
-    const hasData = sensorData[chartType].length > 0;
+    const dataArray = ensureArray(sensorData[chartType]);
+    const totalPages = calculateTotalPages(dataArray);
+    const currentPage = currentPages[chartType] || 1;
+    const hasData = dataArray.length > 0;
 
     // Fungsi untuk menentukan halaman yang akan ditampilkan
     const getPageNumbers = () => {
+      if (totalPages <= 1) return [1];
+      
       const delta = 2; // Jumlah halaman yang ditampilkan di sekitar halaman aktif
       const range = [];
       const rangeWithDots = [];
@@ -251,6 +331,24 @@ const Feeds = () => {
           disabled={!hasData || currentPage === totalPages}
         />
       </Pagination>
+    );
+  };
+
+  // Render chart dengan memeriksa data terlebih dahulu
+  const renderChart = (title, label, dataArray, chartType, options) => {
+    // Menyiapkan data default jika tidak ada data
+    const defaultData = Array(10).fill(0);
+    const useData = (Array.isArray(dataArray) && dataArray.length > 0) ? dataArray : defaultData;
+    
+    return (
+      <div className="chart-section">
+        <h3 className="chart-title">{title}</h3>
+        <Line
+          data={dataTemplate(label, useData, chartType)}
+          options={options}
+        />
+        <PaginationControls chartType={chartType} />
+      </div>
     );
   };
 
@@ -353,97 +451,13 @@ const Feeds = () => {
     <div className="analisis-container">
       <h1 className="analisis-title">Statistik Data Langsung</h1>
 
-      <div className="chart-section">
-        <h3 className="chart-title">Acceleration X</h3>
-        <Line
-          data={dataTemplate(
-            "Accel X",
-            sensorData.accel_x.length ? sensorData.accel_x : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "accel_x"
-          )}
-          options={accelOptions}
-        />
-        <PaginationControls chartType="accel_x" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">Acceleration Y</h3>
-        <Line
-          data={dataTemplate(
-            "Accel Y",
-            sensorData.accel_y.length ? sensorData.accel_y : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "accel_y"
-          )}
-          options={accelOptions}
-        />
-        <PaginationControls chartType="accel_y" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">Acceleration Z</h3>
-        <Line
-          data={dataTemplate(
-            "Accel Z",
-            sensorData.accel_z.length ? sensorData.accel_z : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "accel_z"
-          )}
-          options={accelOptions}
-        />
-        <PaginationControls chartType="accel_z" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">pH</h3>
-        <Line
-          data={dataTemplate(
-            "pH",
-            sensorData.ph.length ? sensorData.ph : Array(10).fill(0),
-            "ph"
-          )}
-          options={phOptions}
-        />
-        <PaginationControls chartType="ph" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">Temperature (°C)</h3>
-        <Line
-          data={dataTemplate(
-            "Temperature (°C)",
-            sensorData.temperature.length ? sensorData.temperature : Array(10).fill(0),
-            "temperature"
-          )}
-          options={temperatureOptions}
-        />
-        <PaginationControls chartType="temperature" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">Turbidity</h3>
-        <Line
-          data={dataTemplate(
-            "Turbidity",
-            sensorData.turbidity.length ? sensorData.turbidity : Array(10).fill(0),
-            "turbidity"
-          )}
-          options={turbidityOptions}
-        />
-        <PaginationControls chartType="turbidity" />
-      </div>
-
-      <div className="chart-section">
-        <h3 className="chart-title">Speed</h3>
-        <Line
-          data={dataTemplate(
-            "Speed",
-            sensorData.speed.length ? sensorData.speed : Array(10).fill(0),
-            "speed"
-          )}
-          options={speedOptions}
-        />
-        <PaginationControls chartType="speed" />
-      </div>
-
+      {renderChart("Acceleration X", "Accel X", sensorData.accel_x, "accel_x", accelOptions)}
+      {renderChart("Acceleration Y", "Accel Y", sensorData.accel_y, "accel_y", accelOptions)}
+      {renderChart("Acceleration Z", "Accel Z", sensorData.accel_z, "accel_z", accelOptions)}
+      {renderChart("pH", "pH", sensorData.ph, "ph", phOptions)}
+      {renderChart("Temperature (°C)", "Temperature (°C)", sensorData.temperature, "temperature", temperatureOptions)}
+      {renderChart("Turbidity", "Turbidity", sensorData.turbidity, "turbidity", turbidityOptions)}
+      {renderChart("Speed", "Speed", sensorData.speed, "speed", speedOptions)}
     </div>
   );
 };
