@@ -67,19 +67,64 @@ const About = () => {
           <Accordion.Item eventKey="0">
             <Accordion.Header>Apa tujuan dari platform ini?</Accordion.Header>
             <Accordion.Body>
-              Platform ini bertujuan untuk memfasilitasi pemantauan kualitas air sungai secara real-time menggunakan teknologi IoT dan sensor, sehingga dapat memberikan data yang akurat dan relevan untuk penelitian dan pengambilan keputusan.
+              Platform ini bertujuan untuk memfasilitasi pemantauan kualitas air sungai secara real-time dengan memanfaatkan teknologi sensor dan IoT (Internet of Things). Tujuannya adalah menyediakan data yang akurat, terkini, dan relevan untuk mendukung penelitian, analisis, serta pengambilan keputusan terkait pengelolaan sumber daya air.
             </Accordion.Body>
           </Accordion.Item>
           <Accordion.Item eventKey="1">
             <Accordion.Header>Bagaimana cara mengakses data kualitas air?</Accordion.Header>
             <Accordion.Body>
-              Data kualitas air dapat diakses melalui platform ini dengan mudah. Anda dapat melihat data seperti turbidity, pH, dan suhu air secara real-time.
+              Data kualitas air dapat diakses dengan mudah melalui platform ini. Pengguna dapat melihat berbagai parameter kualitas air, seperti tingkat kekeruhan (turbidity), pH, suhu, dan parameter lainnya yang ditampilkan secara real-time pada antarmuka platform. Data tersebut disajikan dalam bentuk grafik, tabel, atau peta digital untuk memudahkan interpretasi.
             </Accordion.Body>
           </Accordion.Item>
           <Accordion.Item eventKey="2">
             <Accordion.Header>Siapa yang dapat menggunakan platform ini?</Accordion.Header>
             <Accordion.Body>
-              Platform ini dapat digunakan oleh para peneliti, pemerintah, dan masyarakat umum yang tertarik untuk memantau kualitas air sungai.
+              Platform ini dirancang untuk digunakan oleh berbagai pihak, termasuk peneliti, instansi pemerintah, organisasi lingkungan, dan masyarakat umum yang tertarik untuk memantau dan memahami kondisi kualitas air sungai. Dengan akses yang terbuka, platform ini mendukung kolaborasi dan transparansi dalam pengelolaan sumber daya air.
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="3">
+            <Accordion.Header>Apa keunggulan platform ini?</Accordion.Header>
+            <Accordion.Body>
+              Keunggulan platform ini terletak pada kemampuannya menyajikan data secara real-time. Selain itu, platform ini dilengkapi dengan fitur prediksi kualitas air sungai untuk memberikan perkiraan kondisi air di masa mendatang. Fitur ini membantu pengguna dalam mengambil tindakan pencegahan atau mitigasi jika diprediksi akan terjadi penurunan kualitas air.
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="4">
+            <Accordion.Header>Kekeruhan (Turbidity)</Accordion.Header>
+            <Accordion.Body>
+              Kekeruhan mengukur tingkat kejernihan air yang dipengaruhi oleh partikel tersuspensi seperti lumpur, plankton, atau bahan organik. Satuan yang umum digunakan adalah NTU (Nephelometric Turbidity Units).
+              <br /><br />
+              Batas ideal untuk air sungai:
+              <ul>
+                <li>0–5 NTU : Air jernih, ideal untuk ekosistem perairan.</li>
+                <li>5–50 NTU : Air masih dapat ditoleransi oleh sebagian besar organisme air.</li>
+                <li>&gt;50 NTU : Air keruh, dapat mengganggu ekosistem dan mengurangi penetrasi cahaya ke dalam air.</li>
+              </ul>
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="5">
+            <Accordion.Header>pH (Tingkat Keasaman atau Kebasaan)</Accordion.Header>
+            <Accordion.Body>
+              pH mengukur tingkat keasaman atau kebasaan air pada skala 0–14. Air sungai dengan pH netral (sekitar 7) dianggap ideal untuk mendukung kehidupan akuatik.
+              <br /><br />
+              Batas ideal untuk air sungai:
+              <ul>
+                <li>6.5–8.5 : Kisaran pH optimal untuk sebagian besar organisme air.</li>
+                <li>&lt; 6.5 : Air bersifat asam, dapat merusak ekosistem dan mengganggu kehidupan ikan serta organisme lainnya.</li>
+                <li>&gt; 8.5 : Air bersifat basa, dapat menyebabkan stres pada organisme air dan mengurangi ketersediaan nutrisi.</li>
+              </ul>
+            </Accordion.Body>
+          </Accordion.Item>
+          <Accordion.Item eventKey="6">
+            <Accordion.Header>Temperature (Suhu)</Accordion.Header>
+            <Accordion.Body>
+              Suhu air memengaruhi metabolisme organisme air, kelarutan oksigen, dan keseimbangan ekosistem.
+              <br /><br />
+              Batas ideal untuk air sungai:
+              <ul>
+                <li>16 – 28°C : Kisaran suhu optimal untuk mendukung kehidupan organisme air di daerah tropis seperti Indonesia.</li>
+                <li>&gt; 28°C : Suhu tinggi dapat mengurangi kadar oksigen terlarut dan menyebabkan stres pada organisme air.</li>
+                <li>&lt; 16°C : Suhu rendah dapat memperlambat metabolisme organisme air.</li>
+              </ul>
             </Accordion.Body>
           </Accordion.Item>
         </Accordion>

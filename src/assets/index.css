@@ -689,12 +689,6 @@ footer p {
   gap: 20px;
 }
 
-.search-input-wrapper {
-  width: 80%; /* Mengurangi lebar search bar */
-  display: flex;
-  align-items: center;
-}
-
 .search-input {
   width: 100%;
   padding: 10px;

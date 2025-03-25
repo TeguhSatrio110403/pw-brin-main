@@ -1,216 +1,296 @@
-// import React, { useState } from "react";
-// import { Modal, Button } from "react-bootstrap";
-// import { ExclamationTriangleFill } from "react-bootstrap-icons";
-// // import "./ModalBox.css"; // Import file CSS
-
-// const ModalBox = () => {
-//   const [show, setShow] = useState(false);
-
-//   const handleClose = () => setShow(false);
-//   const handleShow = () => setShow(true);
-
-//   return (
-//     <>
-//       {/* Tombol untuk membuka modal */}
-//       <Button className="btn-danger modal-button" onClick={handleShow}>
-//         Prediksi <span className="check-icon">✔</span>
-//       </Button>
-
-//       {/* Modal Bootstrap */}
-//       <Modal show={show} onHide={handleClose} centered>
-//         <Modal.Header closeButton>
-//           <Modal.Title>
-//             <ExclamationTriangleFill className="warning-icon" /> Peringatan!
-//           </Modal.Title>
-//         </Modal.Header>
-//         <Modal.Body>
-//           Kualitas air sungai menunjukkan tingkat pencemaran tinggi.
-//           Harap segera lakukan tindakan pencegahan.
-//         </Modal.Body>
-//         <Modal.Footer>
-//           <Button variant="secondary" onClick={handleClose}>
-//             Tutup
-//           </Button>
-//           <Button variant="danger" onClick={handleClose}>
-//             Mengerti
-//           </Button>
-//         </Modal.Footer>
-//       </Modal>
-//     </>
-//   );
-// };
-
-// export default ModalBox;
-
-// import React from "react";
-// import { Modal, Button } from "react-bootstrap";
-
-// const FeedModal = ({ show, onHide, feed }) => {
-//   return (
-//     <Modal show={show} onHide={onHide} centered>
-//       <Modal.Header closeButton>
-//         <Modal.Title>Detail Sungai</Modal.Title>
-//       </Modal.Header>
-//       <Modal.Body>
-//         {feed && (
-//           <>
-//             <h4>{feed.name}</h4>
-//             <p>Alamat : {feed.address}</p>
-//             <p>Tanggal Update : {feed.date}</p>
-//             <p>Status : <strong>{feed.status}</strong></p>
-//           </>
-//         )}
-//       </Modal.Body>
-//       <Modal.Footer>
-//         <Button variant="secondary" onClick={onHide}>
-//           Tutup
-//         </Button>
-//       </Modal.Footer>
-//     </Modal>
-//   );
-// };
-
-// export default FeedModal;
-
-import React, { useState } from "react";
-import { Modal, Button, Table } from "react-bootstrap";
-import { ExclamationTriangleFill } from "react-bootstrap-icons";
+import React, { useState, useEffect } from "react";
+import { Modal, Button, Table, Spinner, Alert, Form } from "react-bootstrap";
+import {
+  Download,
+  Magic,
+  X,
+} from "react-bootstrap-icons";
 
 const FeedModal = ({ show, onHide, feed }) => {
-  const [showWarning, setShowWarning] = useState(false);
+  const [waterData, setWaterData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const waterData = [
-    {
-      accelX: 0.98,
-      accelY: 1.02,
-      accelZ: 0.95,
-      pH: 7.1,
-      temp: 25,
-      turbidity: 3.2,
-    },
-    {
-      accelX: 1.02,
-      accelY: 0.98,
-      accelZ: 1.01,
-      pH: 6.9,
-      temp: 24.5,
-      turbidity: 3.5,
-    },
-    {
-      accelX: 0.95,
-      accelY: 1.05,
-      accelZ: 1.0,
-      pH: 7.2,
-      temp: 26,
-      turbidity: 2.9,
-    },
-  ];
+  // Fetch data from server when modal opens or page/itemsPerPage changes
+  useEffect(() => {
+    if (show && feed) {
+      const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await fetch(
+            `https://server-water-sensors-production.up.railway.app/data_combined/paginated/${
+              feed.id
+            }?page=${currentPage + 1}&limit=${itemsPerPage}`
+          );
 
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+            setWaterData(result.data);
+            setTotalItems(result.total);
+          } else {
+            throw new Error(result.message || "Failed to fetch data");
+          }
+        } catch (err) {
+          console.error("Error fetching water data:", err);
+          setError(err.message || "An unknown error occurred");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [show, feed, currentPage, itemsPerPage]);
+
+  // Function to download data as CSV
   const downloadCSV = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      ["Accel X, Accel Y, Accel Z, pH, Temperature, Turbidity"]
-        .concat(
-          waterData.map(
-            (d) =>
-              `${d.accelX},${d.accelY},${d.accelZ},${d.pH},${d.temp},${d.turbidity}`
-          )
-        )
-        .join("\n");
+    if (waterData.length === 0) return;
 
+    const headers =
+      "Tanggal,pH,Suhu (°C),Turbidity (NTU),Kecepatan (m/s),Accel X,Accel Y,Accel Z";
+    const csvRows = waterData.map(
+      (item) =>
+        `"${new Date(item.tanggal).toLocaleString()}",${item.nilai_ph},${
+          item.nilai_temperature
+        },${item.nilai_turbidity},${item.nilai_speed ?? "null"},${
+          item.nilai_accel_x
+        },${item.nilai_accel_y},${item.nilai_accel_z}`
+    );
+
+    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${csvRows.join(
+      "\n"
+    )}`;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `data_kadar_air_${feed?.name || "unknown"}.csv`
+      `water_sensor_data_${feed?.name || "unknown"}_${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
+
   return (
-    <>
-      <Modal show={show} onHide={onHide} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Detail Sungai</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {feed && (
-            <>
-              <h4>{feed.name}</h4>
-              <p>{feed.address}</p>
-              <p>{feed.date}</p>
-              {/* <p>
-                Status: <strong>{feed.status}</strong>
-              </p> */}
-              <br />
+    <Modal show={show} onHide={onHide} centered size="xl">
+      <Modal.Header closeButton>
+        <Modal.Title>Detail Sungai</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {feed && (
+          <>
+            <h4>{feed.name}</h4>
+            <br />
+            <div className="mb-3">
+              <h6 className="text-muted">
+                <i className="bi bi-geo-alt-fill"></i> Alamat
+              </h6>
+              <p className="mb-0">{feed.address}</p>
+            </div>
 
-              {/* Section Data Kadar Air */}
-              <h5 className="mt-4">Data Kadar Air</h5>
-              <Table striped bordered hover>
-                <thead>
-                  <tr>
-                    <th>Accel X</th>
-                    <th>Accel Y</th>
-                    <th>Accel Z</th>
-                    <th>pH</th>
-                    <th>Temperature (°C)</th>
-                    <th>Turbidity (NTU)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {waterData.map((data, index) => (
-                    <tr key={index}>
-                      <td>{data.accelX}</td>
-                      <td>{data.accelY}</td>
-                      <td>{data.accelZ}</td>
-                      <td>{data.pH}</td>
-                      <td>{data.temp}</td>
-                      <td>{data.turbidity}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
+            <div className="mb-4">
+              <h6 className="text-muted">
+                <i className="bi bi-calendar2-week-fill"></i> Tanggal Pengukuran
+              </h6>
+              <p className="mb-0">Terakhir diperbarui: {feed.date}</p>
+            </div>
 
-              <Button variant="primary" onClick={downloadCSV} className="me-2">
-                Unduh Data
-              </Button>
-              <Button variant="danger" onClick={() => setShowWarning(true)}>
-                Prediksi <span className="check-icon">✔</span>
-              </Button>
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>
-            Tutup
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <Button
+                  style={{ borderRadius: '50px' }}
+                  variant="primary"
+                  onClick={downloadCSV}
+                  disabled={waterData.length === 0 || loading}
+                  className="me-2"
+                >
+                  <Download className="me-2 text-white" />
+                  {loading ? "Memuat..." : "Unduh Data"}
+                </Button>
+                <Button
+                  style={{ borderRadius: '50px' }}
+                  variant="danger"
+                  onClick={() => alert("Fitur prediksi belum tersedia.")}
+                  disabled={loading}
+                >
+                  <Magic className="me-2 text-white" />
+                  Prediksi
+                </Button>
+              </div>
+            </div>
 
-      {/* Modal Peringatan Kualitas Air */}
-      <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <ExclamationTriangleFill className="warning-icon" /> Peringatan!
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Kualitas air sungai menunjukkan tingkat pencemaran tinggi. Harap
-          segera lakukan tindakan pencegahan.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowWarning(false)}>
-            Tutup
-          </Button>
-          <Button variant="danger" onClick={() => setShowWarning(false)}>
-            Mengerti
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </>
+            {loading && (
+              <div className="text-center my-4">
+                <Spinner animation="border" variant="primary" />
+                <p className="mt-2">Memuat data sensor...</p>
+              </div>
+            )}
+
+            {error && (
+              <Alert variant="danger" className="mt-3">
+                Gagal memuat data: {error}
+              </Alert>
+            )}
+
+            {!loading && !error && (
+              <>
+                {waterData.length > 0 ? (
+                  <>
+                    <div
+                      className="table-responsive"
+                      style={{ maxHeight: "500px", overflowY: "auto" }}
+                    >
+                      <Table striped bordered hover className="mb-0">
+                        <thead
+                          style={{
+                            position: "sticky",
+                            top: 0,
+                            backgroundColor: "white",
+                            zIndex: 1,
+                          }}
+                        >
+                          <tr>
+                            <th>No</th>
+                            <th>Tanggal</th>
+                            <th>pH</th>
+                            <th>Suhu (°C)</th>
+                            <th>Turbidity (NTU)</th>
+                            <th>Kecepatan (m/s)</th>
+                            <th>Accel X</th>
+                            <th>Accel Y</th>
+                            <th>Accel Z</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {waterData.map((data, index) => (
+                            <tr key={index}>
+                              <td>{currentPage * itemsPerPage + index + 1}</td>
+                              <td>
+                                {new Date(data.tanggal).toLocaleString("id-ID")}
+                              </td>
+                              <td
+                                style={{
+                                  color: data.nilai_ph < 6 ? "#dc3545" : "#28a745",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {data.nilai_ph.toFixed(2)}
+                              </td>
+                              <td
+                                style={{
+                                  color:
+                                    data.nilai_temperature > 30
+                                      ? "#dc3545"
+                                      : "#007bff",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {data.nilai_temperature.toFixed(2)}
+                              </td>
+                              <td>{data.nilai_turbidity.toFixed(2)}</td>
+                              <td>{data.nilai_speed?.toFixed(2) ?? "N/A"}</td>
+                              <td>{data.nilai_accel_x.toFixed(2)}</td>
+                              <td>{data.nilai_accel_y.toFixed(2)}</td>
+                              <td>{data.nilai_accel_z.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+
+                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+                      <div className="d-flex align-items-center" >
+                        <span className="me-2">Baris per halaman :</span>
+                        <Form.Select
+                          value={itemsPerPage}
+                          onChange={handleItemsPerPageChange}
+                          size="sm"
+                          style={{ width: "80px" }}
+                          disabled={loading}
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </Form.Select>
+                      </div>
+
+                      <div className="d-flex align-items-center">
+                        <span className="me-3">
+                          {currentPage * itemsPerPage + 1}-
+                          {Math.min((currentPage + 1) * itemsPerPage, totalItems)}{" "}
+                          dari {totalItems}
+                        </span>
+
+                        <Button
+                          style={{ borderRadius: '50px' }}
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 0 || loading}
+                          className="me-2"
+                        >
+                          &laquo; Sebelumnya
+                        </Button>
+                        <Button
+                          style={{ borderRadius: '50px' }}
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={
+                            (currentPage + 1) * itemsPerPage >= totalItems ||
+                            loading
+                          }
+                        >
+                          Selanjutnya &raquo;
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <Alert variant="info" className="mt-3">
+                    <i className="bi bi-info-circle me-2"></i>
+                    Tidak ada data sensor yang tersedia untuk ditampilkan
+                  </Alert>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button 
+            variant="secondary" 
+            onClick={onHide} 
+            disabled={loading}
+            style={{ borderRadius: '50px' }}
+            >
+          {/* <X className="me-2 text-dark" /> */}
+          Tutup
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };
 
