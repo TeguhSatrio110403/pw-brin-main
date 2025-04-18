@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button, Container, Pagination } from "react-bootstrap";
-import FeedModal from "../isifeeds/modaldata.jsx"; // Import modal
+import FeedModal from "../modalAnalisis/modaldata.jsx"; // Import modal
 
 // Definisikan port (URL API)
-const port = "https://server-water-sensors-production.up.railway.app"; // URL server Anda
+const port = "https://server-water-sensors.onrender.com"; // URL server Anda
 
 const Analisis = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +68,7 @@ const Analisis = () => {
       <Container>
         <div className="controls-section">
           <div className="search-input-wrapper">
+            <i className="bi bi-search search-icon"></i>
             <input
               type="text"
               placeholder="Cari sungai..."
@@ -78,105 +79,137 @@ const Analisis = () => {
           </div>
         </div>
 
-        {/* Feeds Grid */}
-        <div className="feeds-grid">
-          {currentItems.map((feed) => (
-            <div key={feed.id} className="feed-card">
-              <h3><i class="bi bi-geo-alt-fill"></i> {feed.name}</h3>
-              <br />
-              <p className="feed-address">{feed.address}</p>
-              <p className="feed-date"><i class="bi bi-calendar2-week-fill"></i> {feed.date}</p>
-              <Button
-                className="learn-more-button btn-danger"
-                onClick={() => handleShowModal(feed)}
-              >
-                Lihat Detail <i className="bi bi-box-arrow-right"></i>
-              </Button>
+        {/* Feeds Grid atau Empty State */}
+        {currentItems.length > 0 ? (
+          <>
+            <div className="feeds-grid">
+              {currentItems.map((feed) => (
+                <div key={feed.id} className="feed-card">
+                  <h3>
+                    <i className="bi bi-geo-alt-fill text-danger"></i>
+                    <b> {feed.name}</b>
+                  </h3>
+                  <br />
+                  <p className="feed-address">{feed.address}</p>
+                  <p className="feed-date">
+                    <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
+                  </p>
+                  <Button
+                    className="learn-more-button btn-danger"
+                    onClick={() => handleShowModal(feed)}
+                  >
+                    Lihat Detail <i className="bi bi-box-arrow-right"></i>
+                  </Button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="d-flex justify-content-center mt-4">
-            <Pagination className="pagination-danger">
-              <Pagination.First
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-              />
-              <Pagination.Prev
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                disabled={currentPage === 1}
-              />
+            {/* Pagination hanya ditampilkan jika ada data */}
+            {totalPages > 1 && (
+              <div className="d-flex justify-content-center mt-4">
+                <Pagination className="pagination-danger">
+                  <Pagination.First
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  />
+                  <Pagination.Prev
+                    onClick={() => setCurrentPage((prev) => prev - 1)}
+                    disabled={currentPage === 1}
+                  />
 
-              {[...Array(totalPages)].map((_, idx) => {
-                const pageNumber = idx + 1;
+                  {[...Array(totalPages)].map((_, idx) => {
+                    const pageNumber = idx + 1;
 
-                // Selalu tampilkan halaman pertama
-                if (pageNumber === 1) {
-                  return (
-                    <Pagination.Item
-                      key={pageNumber}
-                      active={pageNumber === currentPage}
-                      onClick={() => setCurrentPage(pageNumber)}
-                    >
-                      {pageNumber}
-                    </Pagination.Item>
-                  );
-                }
+                    // Selalu tampilkan halaman pertama
+                    if (pageNumber === 1) {
+                      return (
+                        <Pagination.Item
+                          key={pageNumber}
+                          active={pageNumber === currentPage}
+                          onClick={() => setCurrentPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Pagination.Item>
+                      );
+                    }
 
-                // Tampilkan ellipsis setelah halaman pertama jika current page jauh
-                if (pageNumber === 2 && currentPage > 3) {
-                  return <Pagination.Ellipsis key="ellipsis1" />;
-                }
+                    // Tampilkan ellipsis setelah halaman pertama jika current page jauh
+                    if (pageNumber === 2 && currentPage > 3) {
+                      return <Pagination.Ellipsis key="ellipsis1" />;
+                    }
 
-                // Tampilkan halaman di sekitar current page
-                if (
-                  pageNumber === currentPage - 1 ||
-                  pageNumber === currentPage ||
-                  pageNumber === currentPage + 1
-                ) {
-                  return (
-                    <Pagination.Item
-                      key={pageNumber}
-                      active={pageNumber === currentPage}
-                      onClick={() => setCurrentPage(pageNumber)}
-                    >
-                      {pageNumber}
-                    </Pagination.Item>
-                  );
-                }
+                    // Tampilkan halaman di sekitar current page
+                    if (
+                      pageNumber === currentPage - 1 ||
+                      pageNumber === currentPage ||
+                      pageNumber === currentPage + 1
+                    ) {
+                      return (
+                        <Pagination.Item
+                          key={pageNumber}
+                          active={pageNumber === currentPage}
+                          onClick={() => setCurrentPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Pagination.Item>
+                      );
+                    }
 
-                // Tampilkan ellipsis sebelum halaman terakhir
-                if (pageNumber === totalPages - 1 && currentPage < totalPages - 2) {
-                  return <Pagination.Ellipsis key="ellipsis2" />;
-                }
+                    // Tampilkan ellipsis sebelum halaman terakhir
+                    if (
+                      pageNumber === totalPages - 1 &&
+                      currentPage < totalPages - 2
+                    ) {
+                      return <Pagination.Ellipsis key="ellipsis2" />;
+                    }
 
-                // Selalu tampilkan halaman terakhir
-                if (pageNumber === totalPages) {
-                  return (
-                    <Pagination.Item
-                      key={pageNumber}
-                      active={pageNumber === currentPage}
-                      onClick={() => setCurrentPage(pageNumber)}
-                    >
-                      {pageNumber}
-                    </Pagination.Item>
-                  );
-                }
+                    // Selalu tampilkan halaman terakhir
+                    if (pageNumber === totalPages) {
+                      return (
+                        <Pagination.Item
+                          key={pageNumber}
+                          active={pageNumber === currentPage}
+                          onClick={() => setCurrentPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Pagination.Item>
+                      );
+                    }
 
-                return null;
-              })}
+                    return null;
+                  })}
 
-              <Pagination.Next
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                disabled={currentPage === totalPages}
-              />
-              <Pagination.Last
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-              />
-            </Pagination>
+                  <Pagination.Next
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    disabled={currentPage === totalPages}
+                  />
+                  <Pagination.Last
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  />
+                </Pagination>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-5 empty-state">
+            <i className="bi bi-database-x fs-1 text-muted"></i>
+            <h4 className="mt-3">Tidak Ada Data yang Ditemukan</h4>
+            <p className="text-muted">
+              {searchQuery
+                ? `Tidak ada hasil untuk pencarian "${searchQuery}". Coba dengan kata kunci lain.`
+                : "Saat ini tidak ada data sungai yang tersedia."}
+            </p>
+            {searchQuery && (
+              <Button 
+                variant="outline-danger" 
+                onClick={() => setSearchQuery("")}
+                className="mt-2"
+              >
+                <i className="bi bi-arrow-counterclockwise me-2"></i>
+                Reset Pencarian
+              </Button>
+            )}
           </div>
         )}
 

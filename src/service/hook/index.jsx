@@ -42,7 +42,7 @@ const HookMqtt = () => {
     const fetchData = async () => {
       try {
         // const response = await fetch('http://localhost:3000/getCurrentData');
-        const response = await fetch('https://server-water-sensors-production.up.railway.app'); //url server
+        const response = await fetch('https://server-water-sensors.onrender.com'); //url server
         const result = await response.json();
         
         if (result.success && result.data) {

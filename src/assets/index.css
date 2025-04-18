@@ -929,10 +929,10 @@ footer p {
   /* DASHBOARD*/
   .search-container {
     margin: 0px 0 0 30px;
-    padding: 5px 15px;
+    /* padding: 5px 15px;
     gap: 5px;
     width: 50%;
-    max-width: 95%;
+    max-width: 95%; */
     display: flex; 
     flex-direction: column; 
     align-items: flex-start; 

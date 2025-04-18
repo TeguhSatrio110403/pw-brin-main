@@ -22,7 +22,7 @@ const FeedModal = ({ show, onHide, feed }) => {
         setError(null);
         try {
           const response = await fetch(
-            `https://server-water-sensors-production.up.railway.app/data_combined/paginated/${
+            `https://server-water-sensors.onrender.com/data_combined/paginated/${
               feed.id
             }?page=${currentPage + 1}&limit=${itemsPerPage}`
           );
@@ -100,7 +100,7 @@ const FeedModal = ({ show, onHide, feed }) => {
       <Modal.Body>
         {feed && (
           <>
-            <h4>{feed.name}</h4>
+            <h2><b>{feed.name}</b></h2>
             <br />
             <div className="mb-3">
               <h6 className="text-muted">
@@ -208,7 +208,14 @@ const FeedModal = ({ show, onHide, feed }) => {
                               >
                                 {data.nilai_temperature.toFixed(2)}
                               </td>
-                              <td>{data.nilai_turbidity.toFixed(2)}</td>
+                              <td
+                                style={{
+                                  color: "#FFA500",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {data.nilai_turbidity.toFixed(2)}
+                              </td>
                               <td>{data.nilai_speed?.toFixed(2) ?? "N/A"}</td>
                               <td>{data.nilai_accel_x.toFixed(2)}</td>
                               <td>{data.nilai_accel_y.toFixed(2)}</td>
@@ -269,10 +276,10 @@ const FeedModal = ({ show, onHide, feed }) => {
                     </div>
                   </>
                 ) : (
-                  <Alert variant="info" className="mt-3">
+                  <div className="text-center mt-3">
                     <i className="bi bi-info-circle me-2"></i>
                     Tidak ada data sensor yang tersedia untuk ditampilkan
-                  </Alert>
+                  </div>
                 )}
               </>
             )}
@@ -286,7 +293,6 @@ const FeedModal = ({ show, onHide, feed }) => {
             disabled={loading}
             style={{ borderRadius: '50px' }}
             >
-          {/* <X className="me-2 text-dark" /> */}
           Tutup
         </Button>
       </Modal.Footer>
