@@ -123,7 +123,7 @@ const Dashboard = () => {
   const fetchHistoricalData = async (locationId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/historical_data/${locationId}`);
+      const response = await fetch(`${API_URL}/data_lokasi/${locationId}`);
       const data = await response.json();
       setHistoricalData(data);
       setShowHistory(true);
@@ -175,7 +175,12 @@ const Dashboard = () => {
   const getAddress = async (lat, lng) => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+        {
+          headers: {
+              'User-Agent': 'WaterSensorApp/1.0 (your-contact-email@example.com)'
+          }
+      }
       );
       const data = await response.json();
       return data.display_name || "Alamat tidak ditemukan";

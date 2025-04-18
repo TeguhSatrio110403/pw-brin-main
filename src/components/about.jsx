@@ -10,7 +10,7 @@ const About = () => {
       </h1>
       <div className="line"></div>
       <div className="about-image">
-        <img src="public/IMG_20240325_140850.jpg" alt="Visi" />
+        <img src="/public/IMG_20240325_140850.jpg" alt="Visi" />
       </div>
       <div className="content">
         Selamat datang di platform kami, sistem pengukuran dan deteksi kualitas air sungai berbasis real-time yang dikembangkan oleh Pusat Riset Fotonika, salah satu cabang penelitian di bawah naungan Badan Riset dan Inovasi Nasional (BRIN).
@@ -37,21 +37,21 @@ const About = () => {
         <div className="misi-text">
           <div className="misi">
             <div className="icon">
-              <img src="public/hourglass-split.svg" alt="Icon 1" />
+              <img src="/public/hourglass-split.svg" alt="Icon 1" />
             </div>
             <p>Mengembangkan teknologi pemantauan air sungai berbasis real-time dengan sensor canggih.</p>
           </div>
 
           <div className="misi">
             <div className="icon">
-              <img src="public/clipboard2-data.svg" alt="Icon 2" />
+              <img src="/public/clipboard2-data.svg" alt="Icon 2" />
             </div>
             <p>Menyediakan data kualitas air yang dapat diakses dengan mudah oleh para peneliti, pemerintah, dan masyarakat.</p>
           </div>
 
           <div className="misi">
             <div className="icon">
-              <img src="public/moisture.svg" alt="Icon 3" />
+              <img src="/public/moisture.svg" alt="Icon 3" />
             </div>
             <p>Berkontribusi pada solusi lingkungan berbasis sains untuk mengurangi dampak polusi air.</p>
           </div>
