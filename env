@@ -11,3 +11,5 @@ VITE_DB_USER='root'
 VITE_DB_PASSWORD=''
 VITE_DB_PORT='3306'
 VITE_DB_HOST='localhost'
+
+PUBLIC_URL='/public'
