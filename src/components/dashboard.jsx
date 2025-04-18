@@ -253,25 +253,17 @@ const Dashboard = () => {
       const cleanLat = data.lat.split('.').slice(0, 2).join('.');
       const cleanLon = data.lon.split('.').slice(0, 2).join('.');
       
-      if (!sensorAddresses[idx]) {
-        getAddress(cleanLat, cleanLon).then(address => {
-          setSensorAddresses(prev => ({...prev, [idx]: address}));
-        });
-      }
       
       return (
         <Marker 
           key={`sensor-${idx}`} 
           position={[parseFloat(cleanLat), parseFloat(cleanLon)]}
-          icon={IOTDeviceMarker}
+          icon={markerWaterWays}
         >
           <Popup>
             <div className="custom-popup">
               <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>Data Sensor</h4>
               <div style={{ fontSize: '14px' }}>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Lokasi:</strong> {sensorAddresses[idx] || 'Memuat alamat...'}
-                </p>
                 <p style={{ margin: '4px 0' }}>
                   <strong>Tanggal:</strong> {new Date(data.tanggal).toLocaleString()}
                 </p>
@@ -287,6 +279,16 @@ const Dashboard = () => {
                 </p>
                 <p style={{ margin: '4px 0' }}>
                   <strong>Kekeruhan:</strong> {data.nilai_turbidity} NTU
+                </p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Kecepatan:</strong> {data.nilai_speed} m/s
+                </p><p style={{ margin: '4px 0' }}>
+                  <strong>Accelerometer X:</strong> {data.nilai_accel_x} m/s2
+                </p><p style={{ margin: '4px 0' }}>
+                  <strong>Accelerometer Y:</strong> {data.nilai_accel_y} m/s2
+                </p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Accelerometer Z:</strong> {data.nilai_accel_z} m/s2
                 </p>
               </div>
             </div>
