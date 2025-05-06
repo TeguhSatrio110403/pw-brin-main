@@ -99,6 +99,7 @@ const Feeds = () => {
 
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("all");
+  const [filteredData, setFilteredData] = useState(null);
 
   const dataPerPage = 10;
 
@@ -142,18 +143,9 @@ const Feeds = () => {
         }
 
         const result = await response.json();
+        console.log("Raw data from server:", result);
 
         if (result.success && result.data && Array.isArray(result.data)) {
-          // Filter data berdasarkan lokasi yang dipilih
-          let filteredData = result.data;
-          if (selectedLocation !== "all") {
-            filteredData = result.data.filter(item => item.id_lokasi === selectedLocation);
-          }
-          
-          // Mengambil seluruh data dan membalik urutannya (terbaru di awal)
-          const allData = filteredData.reverse();
-          
-          // Format tanggal sesuai dengan database
           const formatDate = (dateString) => {
             const date = new Date(dateString);
             return date.toLocaleString('id-ID', {
@@ -166,43 +158,28 @@ const Feeds = () => {
             });
           };
 
-          // Format data untuk grafik
-          const formatDataForChart = (dataArray) => {
-            return dataArray.map(item => ({
+          const allData = result.data.reverse();
+          console.log("Reversed data:", allData);
+          
+          // Format data untuk semua sensor
+          const formatSensorData = (data, field) => {
+            const formatted = data.map(item => ({
               x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai)
+              y: safeParseFloat(item[field]),
+              id_lokasi: item.id_lokasi
             }));
+            console.log(`Formatted ${field}:`, formatted);
+            return formatted;
           };
           
-          setSensorData({
-            accel_x: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_accel_x)
-            })),
-            accel_y: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_accel_y)
-            })),
-            accel_z: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_accel_z)
-            })),
-            ph: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_ph)
-            })),
-            temperature: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_temperature)
-            })),
-            turbidity: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_turbidity)
-            })),
-            speed: allData.map(item => ({
-              x: formatDate(item.tanggal),
-              y: safeParseFloat(item.nilai_speed)
-            })),
+          const formattedData = {
+            accel_x: formatSensorData(allData, 'nilai_accel_x'),
+            accel_y: formatSensorData(allData, 'nilai_accel_y'),
+            accel_z: formatSensorData(allData, 'nilai_accel_z'),
+            ph: formatSensorData(allData, 'nilai_ph'),
+            temperature: formatSensorData(allData, 'nilai_temperature'),
+            turbidity: formatSensorData(allData, 'nilai_turbidity'),
+            speed: formatSensorData(allData, 'nilai_speed'),
             timestamps: allData.map(item => formatDate(item.tanggal)),
             lastTimestamp: allData[0]?.tanggal || null,
             locations: allData.map(item => ({
@@ -210,7 +187,15 @@ const Feeds = () => {
               lat: item.lat,
               lon: item.lon
             }))
-          });
+          };
+          
+          console.log("Final formatted data:", formattedData);
+          setSensorData(formattedData);
+          
+          // Filter data berdasarkan lokasi yang dipilih
+          if (selectedLocation !== "all") {
+            filterDataByLocation(formattedData, selectedLocation);
+          }
         }
       } catch (error) {
         console.error("Error fetching sensor data:", error);
@@ -220,11 +205,61 @@ const Feeds = () => {
     fetchData();
   }, [selectedLocation]);
 
+  // Filter data by location
+  const filterDataByLocation = (data, locationId) => {
+    if (locationId === "all") {
+      setFilteredData(null);
+      return;
+    }
+    
+    // Debug log untuk memeriksa data sebelum difilter
+    console.log('Filtering data for location:', {
+      locationId,
+      data,
+      accel_x: data.accel_x
+    });
+    
+    // Filter data berdasarkan id_lokasi
+    const filtered = {
+      accel_x: data.accel_x.filter(item => item.id_lokasi === locationId),
+      accel_y: data.accel_y.filter(item => item.id_lokasi === locationId),
+      accel_z: data.accel_z.filter(item => item.id_lokasi === locationId),
+      ph: data.ph.filter(item => item.id_lokasi === locationId),
+      temperature: data.temperature.filter(item => item.id_lokasi === locationId),
+      turbidity: data.turbidity.filter(item => item.id_lokasi === locationId),
+      speed: data.speed.filter(item => item.id_lokasi === locationId),
+      timestamps: data.timestamps.filter((_, index) => 
+        data.accel_x[index]?.id_lokasi === locationId
+      ),
+      lastTimestamp: data.lastTimestamp,
+      locations: data.locations.filter(item => item.id === locationId)
+    };
+    
+    // Debug log untuk memeriksa data setelah difilter
+    console.log('Filtered data:', filtered);
+    
+    setFilteredData(filtered);
+  };
+
+  // Handle location change
+  const handleLocationChange = (e) => {
+    const locationId = e.target.value;
+    console.log("Location changed to:", locationId);
+    setSelectedLocation(locationId);
+    
+    if (locationId === "all") {
+      setFilteredData(null);
+    } else {
+      filterDataByLocation(sensorData, locationId);
+    }
+  };
+
   // Get paginated data
   const getPageData = (dataArray, timestampsArray, locationsArray, chartType) => {
-    const safeData = ensureArray(dataArray);
-    const safeTimestamps = ensureArray(timestampsArray);
-    const safeLocations = ensureArray(locationsArray);
+    const dataToUse = filteredData ? filteredData[chartType] : dataArray;
+    const safeData = ensureArray(dataToUse);
+    const safeTimestamps = filteredData ? ensureArray(filteredData.timestamps) : ensureArray(timestampsArray);
+    const safeLocations = filteredData ? ensureArray(filteredData.locations) : ensureArray(locationsArray);
     const page = currentPages[chartType] ?? 1;
     const startIndex = (page - 1) * dataPerPage;
     const endIndex = Math.min(startIndex + dataPerPage, safeData.length);
@@ -283,7 +318,7 @@ const Feeds = () => {
   // Handle page change
   const handlePageChange = (chartType, direction) => {
     setCurrentPages((prev) => {
-      const dataArray = ensureArray(sensorData[chartType]);
+      const dataArray = filteredData ? ensureArray(filteredData[chartType]) : ensureArray(sensorData[chartType]);
       const totalPages = Math.max(1, Math.ceil(dataArray.length / dataPerPage));
       const currentPage = prev[chartType] || 1;
       
@@ -297,7 +332,7 @@ const Feeds = () => {
 
   // Pagination controls component
   const PaginationControls = ({ chartType }) => {
-    const dataArray = ensureArray(sensorData[chartType]);
+    const dataArray = filteredData ? ensureArray(filteredData[chartType]) : ensureArray(sensorData[chartType]);
     const totalPages = Math.max(1, Math.ceil(dataArray.length / dataPerPage));
     const currentPage = currentPages[chartType] || 1;
     const hasData = dataArray.length > 0;
@@ -369,7 +404,7 @@ const Feeds = () => {
     );
   };
 
-  // Chart options
+  // Chart options (same as before)
   const baseOptions = {
     responsive: true,
     plugins: {
@@ -482,26 +517,66 @@ const Feeds = () => {
 
   // Render chart component
   const renderChart = (title, label, dataArray, chartType, options) => {
-    const useData = ensureArray(dataArray).length > 0 ? dataArray : Array(10).fill(0);
+    const useData = filteredData ? filteredData[chartType] : sensorData[chartType];
+    const displayData = ensureArray(useData);
+    
+    // Debug log untuk memeriksa data
+    console.log(`Chart ${chartType}:`, {
+      title,
+      useData,
+      displayData,
+      hasData: displayData.length > 0,
+      hasNonZeroValues: displayData.some(item => item.y !== 0)
+    });
+    
+    const hasData = displayData.length > 0;
+    
+    const noDataMessage = (
+      <div className="no-data-message" style={{
+        textAlign: 'center',
+        padding: '20px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        margin: '20px 0'
+      }}>
+        <i className="bi bi-exclamation-circle" style={{
+          fontSize: '48px',
+          color: '#6c757d',
+          marginBottom: '10px'
+        }}></i>
+        <p style={{
+          color: '#6c757d',
+          fontSize: '16px',
+          margin: '0'
+        }}>Data tidak tersedia untuk lokasi ini</p>
+      </div>
+    );
     
     return (
       <div className="chart-section">
         <h3 className="chart-title">{title}</h3>
-        <Line data={dataTemplate(label, useData, chartType)} options={options} />
-        <PaginationControls chartType={chartType} />
+        {hasData ? (
+          <div>
+            <Line 
+              data={dataTemplate(label, displayData, chartType)} 
+              options={options} 
+            />
+            <PaginationControls chartType={chartType} />
+          </div>
+        ) : noDataMessage}
       </div>
     );
   };
 
   return (
     <div className="analisis-container">
-      <h1 className="analisis-title">Statistik Data Langsung</h1>
+      {/* <h1 className="analisis-title">Statistik Data Langsung</h1> */}
       
       <div className="location-filter mb-4">
         <select 
           className="form-select" 
           value={selectedLocation}
-          onChange={(e) => setSelectedLocation(e.target.value)}
+          onChange={handleLocationChange}
         >
           <option value="all">Semua Lokasi</option>
           {locations.map((location) => (
@@ -512,7 +587,6 @@ const Feeds = () => {
         </select>
         {selectedLocation !== "all" && (
           <p className="location-address mt-2">
-            {/* <i className="bi bi-geo-alt-fill text-danger"></i>{" "} */}
             {locations.find(loc => loc.id_lokasi === selectedLocation)?.alamat}
           </p>
         )}

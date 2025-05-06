@@ -209,10 +209,11 @@ const FeedModal = ({ show, onHide, feed }) => {
                                 {data.nilai_temperature.toFixed(2)}
                               </td>
                               <td
-                                // style={{
-                                //   color: "#1e293b",
-                                //   fontWeight: "bold",
-                                // }}
+                                style={{
+                                  color: data.nilai_turbidity > 25 ? '#dc3545' : 
+                                         data.nilai_turbidity > 5 ? '#ffc107' : '#28a745',
+                                  fontWeight: "bold",
+                                }}
                               >
                                 {data.nilai_turbidity.toFixed(2)}
                               </td>

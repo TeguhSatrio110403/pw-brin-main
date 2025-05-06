@@ -81,9 +81,40 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [iotPosition, setIotPosition] = useState(null);
+  const [serverStatus, setServerStatus] = useState('checking');
+  const [showStatus, setShowStatus] = useState(true);
   
   const socketRef = useRef(null);
+  const mapRef = useRef(null);
   const API_URL = 'https://server-water-sensors.onrender.com';
+
+  // Fungsi untuk mengecek status server
+  const checkServerStatus = async () => {
+    try {
+      const response = await fetch(API_URL);
+      if (response.ok) {
+        setServerStatus('connected');
+      } else {
+        setServerStatus('disconnected');
+      }
+      // Tampilkan status selama 5 detik
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 5000);
+    } catch (error) {
+      console.error('Error checking server status:', error);
+      setServerStatus('disconnected');
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 5000);
+    }
+  };
+
+  // Cek status server setiap 30 detik
+  useEffect(() => {
+    checkServerStatus();
+    const interval = setInterval(checkServerStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch water locations from backend
   const fetchWaterLocations = async () => {
@@ -184,6 +215,13 @@ const Dashboard = () => {
 
     socketRef.current.on('sensorData', (data) => {
       setSensorData(prev => [...prev, data]);
+      
+      // Update posisi IoT jika ada data lokasi
+      if (data.lat && data.lon) {
+        const cleanLat = data.lat.split('.').slice(0, 2).join('.');
+        const cleanLon = data.lon.split('.').slice(0, 2).join('.');
+        setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
+      }
     });
 
     socketRef.current.on('new-location', fetchWaterLocations);
@@ -339,26 +377,54 @@ const Dashboard = () => {
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
-      const id = navigator.geolocation.watchPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const newLocation = [latitude, longitude];
-          setPosition(newLocation);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setPosition([-6.34605, 106.69156]); // Default to Jakarta if error
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000, // Meningkatkan timeout menjadi 10 detik
+        maximumAge: 0
+      };
+
+      const successCallback = (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const newLocation = [latitude, longitude];
+        setPosition(newLocation);
+      };
+
+      const errorCallback = (error) => {
+        console.error("Error getting location:", error);
+        // Default ke lokasi Jakarta jika error
+        setPosition([-6.34605, 106.69156]);
+        
+        // Tampilkan pesan error yang lebih informatif
+        let errorMessage = "Tidak dapat mendapatkan lokasi Anda. ";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += "Akses lokasi ditolak. Mohon izinkan akses lokasi untuk fitur ini.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Informasi lokasi tidak tersedia.";
+            break;
+          case error.TIMEOUT:
+            errorMessage += "Permintaan lokasi timeout. Mohon coba lagi.";
+            break;
+          default:
+            errorMessage += "Terjadi kesalahan saat mengambil lokasi.";
         }
+        alert("Peringatan", errorMessage);
+      };
+
+      // Coba dapatkan lokasi
+      const id = navigator.geolocation.watchPosition(
+        successCallback,
+        errorCallback,
+        options
       );
+      
       setWatchId(id);
     } else {
       console.error("Geolocation is not supported by this browser.");
-      setPosition([-6.34605, 106.69156]); // Default to Jakarta if geolocation not supported
+      // Default ke lokasi Jakarta jika browser tidak mendukung geolocation
+      setPosition([-6.34605, 106.69156]);
+      alert("Peringatan", "Browser Anda tidak mendukung geolocation. Menggunakan lokasi default.");
     }
   };
 
@@ -426,13 +492,62 @@ const Dashboard = () => {
 
   const handlePageChange = async (newPage) => {
     setIsPageLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulasi loading
+    await new Promise(resolve => setTimeout(resolve, 500));
     setCurrentPage(newPage);
     setIsPageLoading(false);
   };
 
+  // Tambahkan fungsi untuk fokus ke marker IoT
+  const focusToIot = () => {
+    if (iotPosition && mapRef.current) {
+      mapRef.current.setView(iotPosition, 16);
+    }
+  };
+
   return (
     <div>
+      {/* Status Server Indicator */}
+      {showStatus && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          padding: '12px 24px',
+          borderRadius: '8px',
+          backgroundColor: serverStatus === 'connected' ? '#4CAF50' : 
+                          serverStatus === 'disconnected' ? '#f44336' : '#ff9800',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+          fontSize: '16px',
+          fontWeight: '500',
+          animation: 'fadeInOut 5s ease-in-out',
+          opacity: showStatus ? 1 : 0,
+          transition: 'opacity 0.3s ease-in-out'
+        }}>
+          <i className={`bi bi-${serverStatus === 'connected' ? 'check-circle' : 
+                         serverStatus === 'disconnected' ? 'x-circle' : 'arrow-repeat'}`}
+             style={{ fontSize: '20px' }}></i>
+          <span>
+            {serverStatus === 'connected' ? 'Server Terhubung' : 
+             serverStatus === 'disconnected' ? 'Server Terputus' : 'Memeriksa Server...'}
+          </span>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translate(-50%, 20px); }
+          10% { opacity: 1; transform: translate(-50%, 0); }
+          90% { opacity: 1; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, 20px); }
+        }
+      `}</style>
+
       {loading && (
         <div style={{
           position: 'fixed',
@@ -572,8 +687,30 @@ const Dashboard = () => {
                 onClick={resetMapPosition}
                 className="btn-mulaibaru"
               >
-                <i class="bi bi-people-fill"></i>
+                <i className="bi bi-people-fill"></i>
               </button>
+
+              {/* Tombol fokus ke IoT */}
+              {iotPosition && (
+                <button
+                  onClick={focusToIot}
+                  className="btn-mulaibaru"
+                  style={{
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <i className="bi bi-broadcast"></i>
+                  Fokus ke IoT
+                </button>
+              )}
             </div>
           </div>
 
@@ -591,6 +728,7 @@ const Dashboard = () => {
             easeLinearity={0.35}
             updateWhenZooming={false}
             updateWhenIdle={false}
+            ref={mapRef}
           >
             <MapEventHandler onMapClick={handleMapClick} />
             <TileLayer
@@ -603,16 +741,44 @@ const Dashboard = () => {
               <Marker position={position} icon={markerLocation}>
                 <Popup>
                   <div className="custom-popup">
-                    <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>Posisi Saat Ini</h4>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Alamat:</strong> {locationAddress || 'Memuat alamat...'}
-                    </p>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Latitude:</strong> {position[0]}
-                    </p>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Longitude:</strong> {position[1]}
-                    </p>
+                    <div style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>
+                      <h5>Posisi Saat Ini</h5>
+                    </div>
+                    <div style={{ fontSize: '14px' }}>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Alamat:</strong> {locationAddress || 'Memuat alamat...'}
+                      </p>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Latitude:</strong> {position[0]}
+                      </p>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Longitude:</strong> {position[1]}
+                      </p>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* IoT Device Marker */}
+            {iotPosition && (
+              <Marker position={iotPosition} icon={IOTDeviceMarker}>
+                <Popup>
+                  <div className="custom-popup">
+                    <div style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>
+                      <h5>Perangkat IoT</h5>
+                    </div>
+                    <div style={{ fontSize: '14px' }}>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Status:</strong> Aktif
+                      </p>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Latitude:</strong> {iotPosition[0]}
+                      </p>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Longitude:</strong> {iotPosition[1]}
+                      </p>
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -623,16 +789,17 @@ const Dashboard = () => {
               <Marker position={clickedMarker} icon={markerSelected}>
                 <Popup>
                   <div className="custom-popup">
-                    <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>Lokasi Terpilih</h4>
-                    {/* <p style={{ margin: '4px 0' }}>
-                      <strong>Alamat:</strong> {clickedLocation?.address || 'Memuat alamat...'}
-                    </p> */}
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Latitude:</strong> {clickedMarker[0]}
-                    </p>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Longitude:</strong> {clickedMarker[1]}
-                    </p>
+                    <div style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>
+                      <h5>Lokasi Terpilih</h5>
+                    </div>
+                    <div style={{ fontSize: '14px' }}>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Latitude:</strong> {clickedMarker[0]}
+                      </p>
+                      <p style={{ margin: '4px 0' }}>
+                        <strong>Longitude:</strong> {clickedMarker[1]}
+                      </p>
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -855,7 +1022,7 @@ const Dashboard = () => {
                           style={{
                             width: '100%',
                             marginTop: '15px',
-                            borderRadius: '4px',
+                            borderRadius: '100px',
                             backgroundColor: '#E62F2A',
                             padding: '10px',
                             color: 'white',
@@ -989,7 +1156,7 @@ const Dashboard = () => {
         }
 
         .feed-card:hover {
-          transform: translateY(-5px);
+          transform: translateY(-2px);
           box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
       `}</style>

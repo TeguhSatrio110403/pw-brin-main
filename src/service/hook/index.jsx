@@ -94,20 +94,20 @@ const HookMqtt = () => {
               <h1 className="text-center">Accel X</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={accelX}
-                        text={`${accelX} m/s²`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={accelX}
+                      text={`${accelX} m/s²`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -116,20 +116,20 @@ const HookMqtt = () => {
               <h1 className="text-center">Accel Y</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={accelY}
-                        text={`${accelY} m/s²`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={accelY}
+                      text={`${accelY} m/s²`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -140,20 +140,20 @@ const HookMqtt = () => {
               <h1 className="text-center">Accel Z</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={accelZ}
-                        text={`${accelZ} m/s²`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={accelZ}
+                      text={`${accelZ} m/s²`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -162,20 +162,20 @@ const HookMqtt = () => {
               <h1 className="text-center">pH</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={ph}
-                        text={`${ph} pH`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={ph}
+                      text={`${ph} pH`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -186,20 +186,20 @@ const HookMqtt = () => {
               <h1 className="text-center">Temperature</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={temp}
-                        text={`${temp} °C`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={temp}
+                      text={`${temp} °C`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -208,20 +208,20 @@ const HookMqtt = () => {
               <h1 className="text-center">Turbidity</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={turbidity}
-                        text={`${turbidity} NTU`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: 'red',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={turbidity}
+                      text={`${turbidity} NTU`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: 'red',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
@@ -229,23 +229,23 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Speed</h1>
+              <h1 className="text-center">Kecepatan Alat</h1>
               <Card className="card mx-auto">
                 <Card.Body>
-                  <Card.Text>
-                    <div className="box-odometer">
-                      <CircularProgressbar
-                        value={speed}
-                        text={`${speed} m/s`}
-                        styles={buildStyles({
-                          textColor: 'black',
-                          pathColor: '#2ecc71',
-                          trailColor: 'black',
-                        })}
-                      />
-                    </div><br />
-                    <h5 className="text-center">{date}</h5>
-                  </Card.Text>
+                  <div className="box-odometer">
+                    <CircularProgressbar
+                      value={speed}
+                      text={`${speed} m/s`}
+                      styles={buildStyles({
+                        textColor: 'black',
+                        pathColor: '#2ecc71',
+                        trailColor: 'black',
+                      })}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <h6>{date}</h6>
+                  </div>
                 </Card.Body>
               </Card>
             </div>

@@ -13,6 +13,7 @@ const Analisis = () => {
   const [feeds, setFeeds] = useState([]); // State untuk menyimpan data dari API
   const [showModal, setShowModal] = useState(false);
   const [selectedFeed, setSelectedFeed] = useState(null);
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' untuk terbaru, 'asc' untuk terlama
 
   // Fetch data dari API
   useEffect(() => {
@@ -33,6 +34,7 @@ const Analisis = () => {
             second: "2-digit",
             hour12: false,
           }),
+          timestamp: new Date(item.tanggal).getTime(), // Tambahkan timestamp untuk sorting
           status: "Baik", // Anda bisa menyesuaikan status berdasarkan data dari API
         }));
         setFeeds(formattedData);
@@ -41,16 +43,22 @@ const Analisis = () => {
       .catch((error) => console.error("Error fetching data:", error));
   }, []);
 
-  // Filter data berdasarkan search query
+  // Filter dan sort data
   useEffect(() => {
-    const result = feeds.filter(
+    let result = feeds.filter(
       (feed) =>
         feed.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         feed.address.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    // Sort berdasarkan timestamp
+    result.sort((a, b) => {
+      return sortOrder === 'desc' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
+    });
+
     setFilteredFeeds(result);
     setCurrentPage(1);
-  }, [searchQuery, feeds]);
+  }, [searchQuery, feeds, sortOrder]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -67,7 +75,7 @@ const Analisis = () => {
     <div className="feeds-container">
       <Container>
         <div className="controls-section">
-          <div className="search-input-wrapper">
+          <div className="search-input-wrapper" style={{ flex: 1 }}>
             <i className="bi bi-search search-icon"></i>
             <input
               type="text"
@@ -77,6 +85,25 @@ const Analisis = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <Button
+            variant="outline-danger"
+            onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+            className="ms-2"
+            style={{ 
+              borderRadius: '50px',
+              borderColor: '#E62F2A',
+              color: '#E62F2A',
+              backgroundColor: 'transparent',
+              width: '200px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <i className={`bi bi-sort-${sortOrder === 'desc' ? 'down' : 'up'}-alt me-2`}></i>
+            {sortOrder === 'desc' ? 'Terbaru' : 'Terlama'}
+          </Button>
         </div>
 
         {/* Feeds Grid atau Empty State */}
@@ -84,19 +111,36 @@ const Analisis = () => {
           <>
             <div className="feeds-grid">
               {currentItems.map((feed) => (
-                <div key={feed.id} className="feed-card">
-                  <h3>
-                    <i className="bi bi-geo-alt-fill text-danger"></i>
-                    <b> {feed.name}</b>
-                  </h3>
-                  <br />
-                  <p className="feed-address">{feed.address}</p>
-                  <p className="feed-date">
-                    <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
-                  </p>
+                <div key={feed.id} className="feed-card" style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  position: 'relative'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <h3>
+                      <i className="bi bi-geo-alt-fill text-danger"></i>
+                      <b> {feed.name}</b>
+                    </h3>
+                    <div className="feed-address">{feed.address}</div>
+                    <div className="feed-date">
+                      <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
+                    </div>
+                  </div>
                   <Button
                     className="learn-more-button btn-danger"
                     onClick={() => handleShowModal(feed)}
+                    style={{
+                      width: '100%',
+                      marginTop: 'auto',
+                      borderRadius: '100px',
+                      backgroundColor: '#E62F2A',
+                      padding: '10px',
+                      color: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                    }}
                   >
                     Lihat Detail <i className="bi bi-box-arrow-right"></i>
                   </Button>
