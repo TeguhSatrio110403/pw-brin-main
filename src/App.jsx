@@ -1,10 +1,11 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import NavigationBar from "./components/navigationBar";
 import Footer from "./components/FooterBar";
 
 import Login from "./components/login";
 import Home from "./components/home";
 import Dashboard from "./components/dashboard";
+import DashboardAdmin from "./components/dashboardAdmin";
 import Analisis from "./components/analisis";
 import Feeds from "./components/feeds";
 import About from "./components/about";
@@ -12,9 +13,12 @@ import About from "./components/about";
 import ProtectedRoute from "./utils/ProtectedRoute";
 
 function App() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
+
   return (
     <div className="app-container">
-      <NavigationBar />
+      {!isLoginPage && <NavigationBar />}
 
       <Routes>
         <Route path="/" element={<Home />} />
@@ -24,6 +28,10 @@ function App() {
         <Route
           path="/dashboard"
           element={<ProtectedRoute component={Dashboard} />}
+        />
+        <Route
+          path="/dashboardAdmin"
+          element={<ProtectedRoute component={DashboardAdmin} />}
         />
         <Route
           path="/analisis"

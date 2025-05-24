@@ -13,6 +13,7 @@ const Analisis = () => {
   const [feeds, setFeeds] = useState([]); // State untuk menyimpan data dari API
   const [showModal, setShowModal] = useState(false);
   const [selectedFeed, setSelectedFeed] = useState(null);
+  const [sortOrder, setSortOrder] = useState('desc'); // Default: terbaru
 
   // Fetch data dari API
   useEffect(() => {
@@ -33,24 +34,36 @@ const Analisis = () => {
             second: "2-digit",
             hour12: false,
           }),
+          rawDate: new Date(item.tanggal), // Tambahkan raw date untuk sorting
           status: "Baik", // Anda bisa menyesuaikan status berdasarkan data dari API
         }));
-        setFeeds(formattedData);
-        setFilteredFeeds(formattedData);
+        
+        // Sort data berdasarkan tanggal terbaru
+        const sortedData = formattedData.sort((a, b) => b.rawDate - a.rawDate);
+        setFeeds(sortedData);
+        setFilteredFeeds(sortedData);
       })
       .catch((error) => console.error("Error fetching data:", error));
   }, []);
 
-  // Filter data berdasarkan search query
+  // Filter data berdasarkan search query dan sort order
   useEffect(() => {
-    const result = feeds.filter(
+    let result = feeds.filter(
       (feed) =>
         feed.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         feed.address.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    // Sort data berdasarkan sort order
+    result = [...result].sort((a, b) => {
+      return sortOrder === 'desc' 
+        ? b.rawDate - a.rawDate   // Terbaru ke terlama
+        : a.rawDate - b.rawDate;  // Terlama ke terbaru
+    });
+
     setFilteredFeeds(result);
     setCurrentPage(1);
-  }, [searchQuery, feeds]);
+  }, [searchQuery, feeds, sortOrder]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -63,19 +76,41 @@ const Analisis = () => {
     setShowModal(true);
   };
 
+  // Handle Sort
+  const handleSort = () => {
+    setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+  };
+
   return (
     <div className="feeds-container">
       <Container>
-        <div className="controls-section">
-          <div className="search-input-wrapper">
-            <i className="bi bi-search search-icon"></i>
-            <input
-              type="text"
-              placeholder="Cari sungai..."
-              className="search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        <div className="controls-section" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="search-input-wrapper">
+              <i className="bi bi-search search-icon"></i>
+              <label htmlFor="sungai-search" className="visually-hidden">Cari sungai</label>
+              <input
+                type="text"
+                placeholder="Cari sungai..."
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                id="sungai-search"
+              />
+            </div>
+            
+            <Button
+              onClick={handleSort}
+              style={{ 
+                borderRadius: '100px',
+                color: '#E62F2A',
+                borderColor: '#E62F2A',
+                backgroundColor: 'white'
+              }}
+            >
+              <i className={`bi bi-sort-${sortOrder === 'desc' ? 'down' : 'up'}`} style={{ color: '#E62F2A', marginRight: '5px' }}></i>
+              {sortOrder === 'desc' ? 'Terbaru' : 'Terlama'}
+            </Button>
           </div>
         </div>
 
@@ -84,19 +119,26 @@ const Analisis = () => {
           <>
             <div className="feeds-grid">
               {currentItems.map((feed) => (
-                <div key={feed.id} className="feed-card">
-                  <h3>
-                    <i className="bi bi-geo-alt-fill text-danger"></i>
-                    <b> {feed.name}</b>
-                  </h3>
-                  <br />
-                  <p className="feed-address">{feed.address}</p>
-                  <p className="feed-date">
-                    <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
-                  </p>
+                <div key={feed.id} className="feed-card" style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%'
+                }}>
+                  <div>
+                    <h3>
+                      <i className="bi bi-geo-alt-fill text-danger"></i>
+                      <b> {feed.name}</b>
+                    </h3>
+                    <br />
+                    <p className="feed-address">{feed.address}</p>
+                    <p className="feed-date">
+                      <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
+                    </p>
+                  </div>
                   <Button
                     className="learn-more-button btn-danger"
                     onClick={() => handleShowModal(feed)}
+                    style={{ marginTop: 'auto' }}
                   >
                     Lihat Detail <i className="bi bi-box-arrow-right"></i>
                   </Button>
@@ -220,6 +262,60 @@ const Analisis = () => {
           feed={selectedFeed}
         />
       </Container>
+      <style>{`
+        .visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          border: 0;
+        }
+        
+        .feeds-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 20px;
+          margin-top: 20px;
+        }
+        
+        .feed-card {
+          background: white;
+          border-radius: 8px;
+          padding: 20px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+        }
+        
+        .feed-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .feed-address {
+          margin-bottom: 10px;
+          color: #555;
+        }
+        
+        .feed-date {
+          color: #777;
+          font-size: 0.9rem;
+          margin-bottom: 15px;
+        }
+        
+        .learn-more-button {
+          width: 100%;
+          border-radius: 100px;
+          padding: 8px 16px;
+          font-weight: 500;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
+        }
+      `}</style>
     </div>
   );
 };

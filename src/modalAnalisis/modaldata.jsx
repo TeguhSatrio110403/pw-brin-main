@@ -111,7 +111,7 @@ const FeedModal = ({ show, onHide, feed }) => {
 
             <div className="mb-4">
               <h6 className="text-muted">
-                <i className="bi bi-calendar2-week-fill"></i> Tanggal Pengukuran
+                <i className="bi bi-calendar2-week-fill"></i> Tanggal Penelitian
               </h6>
               <p className="mb-0">Terakhir diperbarui: {feed.date}</p>
             </div>
@@ -213,6 +213,10 @@ const FeedModal = ({ show, onHide, feed }) => {
                                   color: "#FFA500",
                                   fontWeight: "bold",
                                 }}
+                                // style={{
+                                //   color: "#1e293b",
+                                //   fontWeight: "bold",
+                                // }}
                               >
                                 {data.nilai_turbidity.toFixed(2)}
                               </td>
@@ -228,19 +232,22 @@ const FeedModal = ({ show, onHide, feed }) => {
 
                     <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
                       <div className="d-flex align-items-center" >
-                        <span className="me-2">Baris per halaman :</span>
-                        <Form.Select
-                          value={itemsPerPage}
-                          onChange={handleItemsPerPageChange}
-                          size="sm"
-                          style={{ width: "80px" }}
-                          disabled={loading}
-                        >
-                          <option value={10}>10</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                        </Form.Select>
+                        <Form.Group className="d-flex align-items-center">
+                          <Form.Label htmlFor="rows-per-page" className="me-2 mb-0">Baris per halaman :</Form.Label>
+                          <Form.Select
+                            id="rows-per-page"
+                            value={itemsPerPage}
+                            onChange={handleItemsPerPageChange}
+                            size="sm"
+                            style={{ width: "80px" }}
+                            disabled={loading}
+                          >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </Form.Select>
+                        </Form.Group>
                       </div>
 
                       <div className="d-flex align-items-center">

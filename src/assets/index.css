@@ -146,7 +146,7 @@ a.tbl-mulai:hover {
   padding: 25px 0;
   color: #e62f2a;
   font-weight: 800;
-  letter-spacing: 3px;
+  /* letter-spacing: 3px; */
   font-size: 28px;
   text-align: center;
 }
@@ -362,6 +362,7 @@ a.tbl-mulai:hover {
 
 .chart-section:hover {
   transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -725,6 +726,7 @@ footer p {
 
 .feed-card:hover {
   transform: translateY(-5px);
+  transform: translateY(-2px);
 }
 
 .feed-address {
@@ -896,7 +898,7 @@ footer p {
   }
 
   .login > h1 {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .form-input {
@@ -1099,6 +1101,7 @@ footer p {
 }
 
 .pagination-danger .page-link:hover {
+.pagination-danger .page-link:s {
   color: #cd1b16;
   background-color: #f8d7da;
   border-color: #f5c2c7;
@@ -1120,3 +1123,15 @@ footer p {
   z-index: 1000;
   min-width: 300px;
 }
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-brand .logo {
+  height: 70px;
+  width: auto;
+  object-fit: contain;
+}}
+

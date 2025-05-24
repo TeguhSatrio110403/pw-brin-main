@@ -14,6 +14,7 @@ import 'react-circular-progressbar/dist/styles.css';
 import DataOdometer from '../service/hook/index';
 import LokasiPenelitian from "../service/hook/formdata";
 import MarkerClusterGroup from 'react-leaflet-cluster';
+import { Link } from 'react-router-dom';
 
 // Custom icons from the HTML code
 const markerLocation = new L.Icon({
@@ -39,8 +40,7 @@ const waterMarkerLocation = new L.Icon({
 const IOTDeviceMarker = new L.Icon({
   iconUrl: 'https://dlvmrafkpmwfitrvgpgc.supabase.co/storage/v1/object/public/marker/target.png',
   iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40]
+  iconAnchor: [20, 40]
 });
 
 const RecenterAutomatically = ({ lat, lng }) => {
@@ -75,12 +75,63 @@ const Dashboard = () => {
   const [sensorAddresses, setSensorAddresses] = useState({});
   const [clickedLocation, setClickedLocation] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
+  const [clickedMarker, setClickedMarker] = useState(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [iotPosition, setIotPosition] = useState(null);
+  const [serverStatus, setServerStatus] = useState('checking');
+  const [showStatus, setShowStatus] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [searchLocation, setSearchLocation] = useState(null);
   
   const socketRef = useRef(null);
+  const mapRef = useRef(null);
   const API_URL = 'https://server-water-sensors.onrender.com';
+
+  // Cek status admin dari localStorage saat komponen dimount
+  useEffect(() => {
+    // Periksa apakah user saat ini adalah admin berdasarkan data di localStorage atau sessionStorage
+    const checkAdminStatus = () => {
+      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      
+      if (userInfo.role === 'admin' || user.role === 'admin') {
+        setIsAdmin(true);
+      }
+    };
+    
+    checkAdminStatus();
+  }, []);
+
+  // Fungsi untuk mengecek status server
+  const checkServerStatus = async () => {
+    try {
+      const response = await fetch(API_URL);
+      if (response.ok) {
+        setServerStatus('connected');
+      } else {
+        setServerStatus('disconnected');
+      }
+      // Tampilkan status selama 5 detik
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 5000);
+    } catch (error) {
+      console.error('Error checking server status:', error);
+      setServerStatus('disconnected');
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 5000);
+    }
+  };
+
+  // Cek status server setiap 30 detik
+  useEffect(() => {
+    checkServerStatus();
+    const interval = setInterval(checkServerStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch water locations from backend
   const fetchWaterLocations = async () => {
@@ -120,19 +171,56 @@ const Dashboard = () => {
   };
 
   // Fetch historical data
-  const fetchHistoricalData = async (locationId) => {
+  const fetchHistoricalData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/data_lokasi/${locationId}`);
+      const response = await fetch(`${API_URL}/data_lokasi`);
       const data = await response.json();
-      setHistoricalData(data);
-      setShowHistory(true);
+      
+      if (data) {
+        const formattedData = data.map(item => ({
+          id: item.id_lokasi,
+          name: item.nama_sungai,
+          address: item.alamat,
+          date: new Date(item.tanggal).toLocaleString("id-ID", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }),
+          lat: item.lat,
+          lon: item.lon,
+          status: "Baik"
+        }));
+        setHistoricalData(formattedData);
+      } else {
+        setHistoricalData([]);
+      }
     } catch (error) {
       console.error('Error fetching historical data:', error);
+      setHistoricalData([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filter data berdasarkan search query
+  const filteredHistoricalData = useMemo(() => {
+    return historicalData.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.address.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [historicalData, searchQuery]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredHistoricalData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredHistoricalData.length / itemsPerPage);
 
   // Initialize socket connection
   useEffect(() => {
@@ -144,6 +232,13 @@ const Dashboard = () => {
 
     socketRef.current.on('sensorData', (data) => {
       setSensorData(prev => [...prev, data]);
+      
+      // Update posisi IoT jika ada data lokasi
+      if (data.lat && data.lon) {
+        const cleanLat = data.lat.split('.').slice(0, 2).join('.');
+        const cleanLon = data.lon.split('.').slice(0, 2).join('.');
+        setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
+      }
     });
 
     socketRef.current.on('new-location', fetchWaterLocations);
@@ -217,35 +312,193 @@ const Dashboard = () => {
         }}
       >
         <Popup>
-          <div className="custom-popup">
-            <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>{location.name}</h4>
-            <div style={{ fontSize: '14px' }}>
-              <p style={{ margin: '4px 0' }}>
-                <strong>Alamat:</strong> {location.address}
-              </p>
-              <p style={{ margin: '4px 0' }}>
-                <strong>Tanggal:</strong> {location.date}
-              </p>
-              <button 
-                onClick={() => fetchHistoricalData(location.id)}
+          <div style={{ 
+            fontFamily: 'Arial, sans-serif',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            width: '300px',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            border: '1px solid #e2e8f0'
+          }}>
+            {/* Header */}
+            <div style={{ 
+              padding: '12px 15px',
+              background: '#27ae60',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #e2e8f0'
+            }}>
+              <div>
+                <i className="bi bi-geo-alt-fill" style={{ marginRight: '8px' }}></i>
+                {location.name}
+              </div>
+              <div style={{ 
+                fontSize: '12px', 
+                backgroundColor: 'rgba(255,255,255,0.3)',
+                padding: '2px 6px',
+                borderRadius: '10px'
+              }}>
+                Lokasi
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div style={{ padding: '15px' }}>
+              {/* Alamat */}
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                  <i className="bi bi-pin-map-fill" style={{ color: '#e74c3c', marginRight: '8px', fontSize: '18px' }}></i>
+                  <span style={{ fontWeight: 'bold', color: '#333' }}>Alamat Lokasi</span>
+                </div>
+                <div style={{ 
+                  backgroundColor: '#f8f9fa',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '13px',
+                  color: '#333',
+                  lineHeight: '1.5'
+                }}>
+                  {location.address}
+                </div>
+              </div>
+              
+              {/* Koordinat */}
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                  <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                  <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                </div>
+                
+                {/* Tampilan yang lebih responsif untuk koordinat */}
+                <div style={{ 
+                  backgroundColor: '#f8f9fa',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{ 
+                      minWidth: '70px', 
+                      fontSize: '13px', 
+                      color: '#666',
+                      fontWeight: 'bold'
+                    }}>
+                      Latitude:
+                    </div>
+                    <div style={{ 
+                      flex: '1',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      color: '#2980b9',
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                      borderRadius: '4px',
+                      wordBreak: 'break-all',
+                      textAlign: 'right'
+                    }}>
+                      {location.position[0].toFixed(6)}
+                    </div>
+                  </div>
+                  
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ 
+                      minWidth: '70px', 
+                      fontSize: '13px', 
+                      color: '#666',
+                      fontWeight: 'bold'
+                    }}>
+                      Longitude:
+                    </div>
+                    <div style={{ 
+                      flex: '1',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      color: '#2980b9',
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                      borderRadius: '4px',
+                      wordBreak: 'break-all',
+                      textAlign: 'right'
+                    }}>
+                      {location.position[1].toFixed(6)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Info Tambahan */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                  <i className="bi bi-info-circle-fill" style={{ color: '#f39c12', marginRight: '8px', fontSize: '18px' }}></i>
+                  <span style={{ fontWeight: 'bold', color: '#333' }}>Informasi</span>
+                </div>
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: '#f8f9fa',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <i className="bi bi-calendar-event" style={{ color: '#7f8c8d', marginRight: '8px' }}></i>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>Tanggal Pencatatan</div>
+                    <div style={{ fontWeight: 'bold', color: '#333' }}>{location.date}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div style={{ 
+              padding: '12px 15px',
+              backgroundColor: '#f8f9fa',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  if (mapRef.current) {
+                    mapRef.current.setView(location.position, 18);
+                  }
+                }}
                 style={{
-                  background: '#1a73e8',
+                  backgroundColor: '#27ae60',
                   color: 'white',
                   border: 'none',
-                  padding: '8px 12px',
+                  padding: '8px 16px',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  marginTop: '8px'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                Lihat Data Historis
+                <i className="bi bi-zoom-in"></i>
+                Perbesar Lokasi
               </button>
             </div>
           </div>
         </Popup>
       </Marker>
     ));
-  }, [waterLocations]);
+  }, [waterLocations, mapRef]);
 
   // Sensor data markers
   const sensorMarkers = useMemo(() => {
@@ -253,6 +506,30 @@ const Dashboard = () => {
       const cleanLat = data.lat.split('.').slice(0, 2).join('.');
       const cleanLon = data.lon.split('.').slice(0, 2).join('.');
       
+      // Menentukan status pH
+      const getPHStatus = (value) => {
+        if (value < 6) return { color: '#e74c3c', text: 'Asam' };
+        if (value > 8) return { color: '#e67e22', text: 'Basa' };
+        return { color: '#2ecc71', text: 'Normal' };
+      };
+      
+      // Menentukan status suhu
+      const getTempStatus = (value) => {
+        if (value > 30) return { color: '#e74c3c', text: 'Tinggi' };
+        if (value < 20) return { color: '#3498db', text: 'Rendah' };
+        return { color: '#2ecc71', text: 'Normal' };
+      };
+      
+      // Menentukan status kekeruhan
+      const getTurbidityStatus = (value) => {
+        if (value > 50) return { color: '#e74c3c', text: 'Keruh' };
+        if (value > 25) return { color: '#e67e22', text: 'Sedang' };
+        return { color: '#2ecc71', text: 'Jernih' };
+      };
+      
+      const phStatus = getPHStatus(data.nilai_ph);
+      const tempStatus = getTempStatus(data.nilai_temperature);
+      const turbidityStatus = getTurbidityStatus(data.nilai_turbidity);
       
       return (
         <Marker 
@@ -261,35 +538,214 @@ const Dashboard = () => {
           icon={markerWaterWays}
         >
           <Popup>
-            <div className="custom-popup">
-              <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>Data Sensor</h4>
-              <div style={{ fontSize: '14px' }}>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Tanggal:</strong> {new Date(data.tanggal).toLocaleString()}
-                </p>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>pH:</strong> <span style={{ color: data.nilai_ph < 6 ? '#e74c3c' : '#2ecc71' }}>
-                    {data.nilai_ph}
+            <div style={{ 
+              fontFamily: 'Arial, sans-serif',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              width: '300px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0'
+            }}>
+              {/* Header */}
+              <div style={{ 
+                padding: '12px 15px',
+                background: '#3498db',
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid #e2e8f0'
+              }}>
+                <span><i className="bi bi-water" style={{ marginRight: '8px' }}></i>Data Sensor</span>
+                <span style={{ fontSize: '12px', opacity: '0.9' }}>{new Date(data.tanggal).toLocaleString()}</span>
+              </div>
+              
+              {/* Content */}
+              <div style={{ padding: '15px' }}>
+                {/* pH Value */}
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#333' }}>pH</span>
+                    <span style={{ 
+                      fontSize: '13px', 
+                      backgroundColor: phStatus.color, 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '10px' 
+                    }}>
+                      {phStatus.text}
                   </span>
-                </p>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Suhu:</strong> <span style={{ color: data.nilai_temperature > 30 ? '#e74c3c' : '#3498db' }}>
-                    {data.nilai_temperature}°C
+                  </div>
+                  <div style={{ 
+                    height: '10px', 
+                    backgroundColor: '#e0e0e0', 
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    marginBottom: '3px'
+                  }}>
+                    <div style={{ 
+                      height: '100%', 
+                      width: `${(data.nilai_ph / 14) * 100}%`,
+                      backgroundColor: phStatus.color, 
+                      borderRadius: '5px'
+                    }}></div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                    <span>0</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_ph}</span>
+                    <span>14</span>
+                  </div>
+                </div>
+                
+                {/* Temperature */}
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#333' }}>Suhu</span>
+                    <span style={{ 
+                      fontSize: '13px', 
+                      backgroundColor: tempStatus.color, 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '10px' 
+                    }}>
+                      {tempStatus.text}
                   </span>
-                </p>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Kekeruhan:</strong> {data.nilai_turbidity} NTU
-                </p>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Kecepatan:</strong> {data.nilai_speed} m/s
-                </p><p style={{ margin: '4px 0' }}>
-                  <strong>Accelerometer X:</strong> {data.nilai_accel_x} m/s2
-                </p><p style={{ margin: '4px 0' }}>
-                  <strong>Accelerometer Y:</strong> {data.nilai_accel_y} m/s2
-                </p>
-                <p style={{ margin: '4px 0' }}>
-                  <strong>Accelerometer Z:</strong> {data.nilai_accel_z} m/s2
-                </p>
+                  </div>
+                  <div style={{ 
+                    height: '10px', 
+                    backgroundColor: '#e0e0e0', 
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    marginBottom: '3px'
+                  }}>
+                    <div style={{ 
+                      height: '100%', 
+                      width: `${(data.nilai_temperature / 40) * 100}%`,
+                      backgroundColor: tempStatus.color, 
+                      borderRadius: '5px'
+                    }}></div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                    <span>0°C</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_temperature}°C</span>
+                    <span>40°C</span>
+                  </div>
+                </div>
+                
+                {/* Turbidity */}
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#333' }}>Kekeruhan</span>
+                    <span style={{ 
+                      fontSize: '13px', 
+                      backgroundColor: turbidityStatus.color, 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '10px' 
+                    }}>
+                      {turbidityStatus.text}
+                    </span>
+                  </div>
+                  <div style={{ 
+                    height: '10px', 
+                    backgroundColor: '#e0e0e0', 
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    marginBottom: '3px'
+                  }}>
+                    <div style={{ 
+                      height: '100%', 
+                      width: `${Math.min((data.nilai_turbidity / 100) * 100, 100)}%`,
+                      backgroundColor: turbidityStatus.color, 
+                      borderRadius: '5px'
+                    }}></div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                    <span>0 NTU</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_turbidity} NTU</span>
+                    <span>100+ NTU</span>
+                  </div>
+                </div>
+                
+                {/* Speed */}
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#333' }}>Kecepatan</span>
+                  </div>
+                  <div style={{ 
+                    height: '10px', 
+                    backgroundColor: '#e0e0e0', 
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    marginBottom: '3px'
+                  }}>
+                    <div style={{ 
+                      height: '100%', 
+                      width: `${Math.min((data.nilai_speed / 5) * 100, 100)}%`,
+                      backgroundColor: '#2980b9', 
+                      borderRadius: '5px'
+                    }}></div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                    <span>0 m/s</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_speed} m/s</span>
+                    <span>5+ m/s</span>
+                  </div>
+                </div>
+                
+                {/* Accelerometer Data in Grid */}
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>Data Accelerometer</div>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ 
+                      padding: '8px', 
+                      backgroundColor: '#f8f9fa', 
+                      borderRadius: '5px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#666' }}>X-Axis</div>
+                      <div style={{ fontWeight: 'bold', color: '#e74c3c' }}>{data.nilai_accel_x} m/s²</div>
+                    </div>
+                    <div style={{ 
+                      padding: '8px', 
+                      backgroundColor: '#f8f9fa', 
+                      borderRadius: '5px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#666' }}>Y-Axis</div>
+                      <div style={{ fontWeight: 'bold', color: '#2ecc71' }}>{data.nilai_accel_y} m/s²</div>
+                    </div>
+                    <div style={{ 
+                      padding: '8px', 
+                      backgroundColor: '#f8f9fa', 
+                      borderRadius: '5px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#666' }}>Z-Axis</div>
+                      <div style={{ fontWeight: 'bold', color: '#3498db' }}>{data.nilai_accel_z} m/s²</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Footer */}
+              <div style={{ 
+                padding: '10px 15px',
+                backgroundColor: '#f8f9fa',
+                borderTop: '1px solid #e2e8f0',
+                fontSize: '12px',
+                color: '#666',
+                textAlign: 'center'
+              }}>
+                <i className="bi bi-geo-alt-fill" style={{ color: '#e74c3c', marginRight: '5px' }}></i>
+                {cleanLat}, {cleanLon}
               </div>
             </div>
           </Popup>
@@ -300,26 +756,54 @@ const Dashboard = () => {
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
-      const id = navigator.geolocation.watchPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const newLocation = [latitude, longitude];
-          setPosition(newLocation);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setPosition([-6.34605, 106.69156]); // Default to Jakarta if error
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000, // Meningkatkan timeout menjadi 10 detik
+        maximumAge: 0
+      };
+
+      const successCallback = (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const newLocation = [latitude, longitude];
+        setPosition(newLocation);
+      };
+
+      const errorCallback = (error) => {
+        console.error("Error getting location:", error);
+        // Default ke lokasi Jakarta jika error
+        setPosition([-6.34605, 106.69156]);
+        
+        // Tampilkan pesan error yang lebih informatif
+        let errorMessage = "Tidak dapat mendapatkan lokasi Anda. ";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += "Akses lokasi ditolak. Mohon izinkan akses lokasi untuk fitur ini.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += "Informasi lokasi tidak tersedia.";
+            break;
+          case error.TIMEOUT:
+            errorMessage += "Permintaan lokasi timeout. Mohon coba lagi.";
+            break;
+          default:
+            errorMessage += "Terjadi kesalahan saat mengambil lokasi.";
         }
+        alert("Peringatan", errorMessage);
+      };
+
+      // Coba dapatkan lokasi
+      const id = navigator.geolocation.watchPosition(
+        successCallback,
+        errorCallback,
+        options
       );
+      
       setWatchId(id);
     } else {
       console.error("Geolocation is not supported by this browser.");
-      setPosition([-6.34605, 106.69156]); // Default to Jakarta if geolocation not supported
+      // Default ke lokasi Jakarta jika browser tidak mendukung geolocation
+      setPosition([-6.34605, 106.69156]);
+      alert("Peringatan", "Browser Anda tidak mendukung geolocation. Menggunakan lokasi default.");
     }
   };
 
@@ -327,8 +811,8 @@ const Dashboard = () => {
     setMapKey(prevKey => prevKey + 1);
   };
 
-  // Search location handler
-  const searchLocation = async (query) => {
+  // Fungsi pencarian: ganti nama menjadi searchLocationByQuery
+  const searchLocationByQuery = async (query) => {
     if (!query.trim()) return;
     
     try {
@@ -345,24 +829,41 @@ const Dashboard = () => {
 
   const handleLocationSelect = (location) => {
     setPreviousPosition(position);
-    setPosition([parseFloat(location.lat), parseFloat(location.lon)]);
+    setSearchLocation(location);
     setShowSearchResults(false);
     setSearchQuery(location.display_name);
+    
+    // Fokus peta ke lokasi hasil pencarian dengan animasi
+    if (mapRef.current) {
+      mapRef.current.flyTo([parseFloat(location.lat), parseFloat(location.lon)], 16, {
+        duration: 1.5, // durasi animasi dalam detik
+        easeLinearity: 0.25 // efek smoothing
+      });
+    }
   };
 
   const handleSearchInputChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
     
-    if (!value && previousPosition) {
+    // Jika input pencarian kosong, hapus marker hasil pencarian
+    if (!value) {
+      setSearchLocation(null);
+      
+      if (previousPosition) {
       setPosition(previousPosition);
       setPreviousPosition(null);
+      }
     }
   };
 
   const handleMapClick = async (e) => {
     const { lat, lng } = e.latlng;
     const address = await getAddress(lat, lng);
+    
+    // Set posisi marker yang diklik
+    setClickedMarker([lat, lng]);
+    
     setClickedLocation({
       lat,
       lng,
@@ -381,8 +882,126 @@ const Dashboard = () => {
     });
   };
 
+  const handlePageChange = async (newPage) => {
+    setIsPageLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setCurrentPage(newPage);
+    setIsPageLoading(false);
+  };
+
+  // Tambahkan fungsi untuk fokus ke marker IoT
+  const focusToIot = () => {
+    if (iotPosition && mapRef.current) {
+      mapRef.current.setView(iotPosition, 16);
+    }
+  };
+
+  // Fungsi untuk mereset pencarian
+  const handleResetSearch = () => {
+    setSearchQuery('');
+    setSearchLocation(null);
+    setSearchResults([]);
+    setShowSearchResults(false);
+    
+    if (previousPosition) {
+      setPosition(previousPosition);
+      setPreviousPosition(null);
+    }
+  };
+
   return (
     <div>
+      {/* Status Server Indicator */}
+      {showStatus && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          padding: '12px 24px',
+          borderRadius: '8px',
+          backgroundColor: serverStatus === 'connected' ? '#4CAF50' : 
+                          serverStatus === 'disconnected' ? '#f44336' : '#ff9800',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+          fontSize: '16px',
+          fontWeight: '500',
+          animation: 'fadeInOut 5s ease-in-out',
+          opacity: showStatus ? 1 : 0,
+          transition: 'opacity 0.3s ease-in-out'
+        }}>
+          <i className={`bi bi-${serverStatus === 'connected' ? 'check-circle' : 
+                         serverStatus === 'disconnected' ? 'x-circle' : 'arrow-repeat'}`}
+             style={{ fontSize: '20px' }}></i>
+          <span>
+            {serverStatus === 'connected' ? 'Server Terhubung' : 
+             serverStatus === 'disconnected' ? 'Server Terputus' : 'Memeriksa Server...'}
+          </span>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translate(-50%, 20px); }
+          10% { opacity: 1; transform: translate(-50%, 0); }
+          90% { opacity: 1; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, 20px); }
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .marker-cluster-custom {
+          background: rgba(26, 115, 232, 0.6);
+          border-radius: 50%;
+          text-align: center;
+          font-weight: bold;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px !important;
+          height: 40px !important;
+          margin-left: -20px !important;
+          margin-top: -20px !important;
+        }
+        
+        .cluster-marker {
+          font-size: 14px;
+          font-family: Arial, sans-serif;
+        }
+        
+        .leaflet-marker-icon {
+          filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+        }
+        
+        .leaflet-marker-shadow {
+          opacity: 0.5 !important;
+        }
+
+        .feed-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          border: 0;
+        }
+      `}</style>
+
       {loading && (
         <div style={{
           position: 'fixed',
@@ -400,9 +1019,26 @@ const Dashboard = () => {
             background: 'white', 
             padding: '20px', 
             borderRadius: '8px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
           }}>
-            <p>Memuat data lokasi...</p>
+            <p style={{ 
+              margin: '0 0 15px 0',
+              color: '#333',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}>
+              Memuat data lokasi...
+            </p>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              border: '5px solid #f3f3f3',
+              borderTop: '5px solid #dc3545',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto'
+            }}></div>
           </div>
         </div>
       )}
@@ -411,6 +1047,7 @@ const Dashboard = () => {
         <div className="details" id="map" style={{ height: '100%' }}>
           <div className="search-container">
             <div className="search-input-wrapper" style={{ position: 'relative' }}>
+              <label htmlFor="location-search" className="visually-hidden">Cari Lokasi</label>
               <input
                 type="text"
                 placeholder="Cari Lokasi..."
@@ -418,8 +1055,10 @@ const Dashboard = () => {
                 value={searchQuery}
                 onChange={handleSearchInputChange}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') searchLocation(searchQuery);
+                  if (e.key === 'Enter') searchLocationByQuery(searchQuery);
                 }}
+                id="location-search"
+                name="location-search"
                 style={{
                   width: '100%',
                   padding: '10px 12px 10px 35px',
@@ -441,6 +1080,33 @@ const Dashboard = () => {
                   fontSize: '18px'
                 }}
               />
+              {searchQuery && (
+                <i 
+                  className="bi bi-x-circle-fill" 
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#64748b',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    padding: '5px', // Memperbesar area klik
+                    transition: 'all 0.2s ease', // Efek transisi untuk hover
+                    borderRadius: '50%', // Membuat area hover berbentuk lingkaran
+                  }}
+                  onClick={handleResetSearch}
+                  onMouseOver={(e) => e.currentTarget.style.color = '#e62f2a'} // Berubah warna saat hover
+                  onMouseOut={(e) => e.currentTarget.style.color = '#64748b'} // Kembali ke warna asli
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(0.9)'} // Efek tekan
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1)'} // Kembali normal
+                  onTouchStart={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(0.9)'} // Efek tekan untuk mobile
+                  onTouchEnd={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1)'} // Kembali normal untuk mobile
+                  aria-label="Reset pencarian"
+                  title="Hapus pencarian"
+                />
+              )}
               {showSearchResults && (
                 <div style={{
                   position: 'absolute',
@@ -483,14 +1149,16 @@ const Dashboard = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
+              {/* Tombol Admin Dashboard sudah dipindahkan ke navbar dropdown profil */}
               <button
-                onClick={() => setShowHistory(true)}
+                onClick={() => {
+                  setShowHistoryModal(true);
+                  fetchHistoricalData();
+                }}
                 className="btn-mulaibaru"
                 style={{ 
-                  // display: 'flex',
                   alignItems: 'center',
                   gap: '15px',
-                  // padding: '8px 12px'
                 }}
               >
                 Histori Lokasi <i 
@@ -504,8 +1172,30 @@ const Dashboard = () => {
                 onClick={resetMapPosition}
                 className="btn-mulaibaru"
               >
-                <i className="bi bi-arrow-repeat"></i>
+                <i className="bi bi-people-fill"></i>
               </button>
+
+              {/* Tombol fokus ke IoT */}
+              {iotPosition && (
+                <button
+                  onClick={focusToIot}
+                  className="btn-mulaibaru"
+                  style={{
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <i className="bi bi-broadcast"></i>
+                  Fokus ke IoT
+                </button>
+              )}
             </div>
           </div>
 
@@ -515,6 +1205,15 @@ const Dashboard = () => {
             zoom={16}
             scrollWheelZoom={true}
             style={{ height: '100%', width: '100%' }}
+            zoomControl={true}
+            doubleClickZoom={true}
+            closePopupOnClick={true}
+            dragging={true}
+            animate={false}
+            easeLinearity={0.35}
+            updateWhenZooming={false}
+            updateWhenIdle={false}
+            ref={mapRef}
           >
             <MapEventHandler onMapClick={handleMapClick} />
             <TileLayer
@@ -526,35 +1225,419 @@ const Dashboard = () => {
             {position && (
               <Marker position={position} icon={markerLocation}>
                 <Popup>
-                  <div className="custom-popup">
-                    <h4 style={{ margin: '0 0 8px 0', color: '#2c3e50' }}>Posisi Saat Ini</h4>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Alamat:</strong> {locationAddress || 'Memuat alamat...'}
-                    </p>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Latitude:</strong> {position[0]}
-                    </p>
-                    <p style={{ margin: '4px 0' }}>
-                      <strong>Longitude:</strong> {position[1]}
-                    </p>
+                  <div style={{ 
+                    fontFamily: 'Arial, sans-serif',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    width: '300px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Header */}
+                    <div style={{ 
+                      padding: '12px 15px',
+                      background: '#3498db',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}>
+                      <div>
+                        <i className="bi bi-person-pin" style={{ marginRight: '8px' }}></i>
+                        Posisi Saat Ini
+                    </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>
+                        Anda
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div style={{ padding: '15px' }}>
+                      {/* Alamat */}
+                      <div style={{ marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-pin-map-fill" style={{ color: '#e74c3c', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Alamat Lokasi</span>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '13px',
+                          color: '#333',
+                          lineHeight: '1.5'
+                        }}>
+                          {locationAddress || 'Memuat alamat...'}
+                        </div>
+                      </div>
+                      
+                      {/* Koordinat */}
+                      <div style={{ marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                        </div>
+                        
+                        {/* Tampilan yang lebih responsif untuk koordinat */}
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Latitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {position[0].toFixed(6)}
+                            </div>
+                          </div>
+                          
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Longitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {position[1].toFixed(6)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </Popup>
               </Marker>
             )}
             
-            {/* Water location markers with clustering */}
-            <MarkerClusterGroup
-              chunkedLoading
-              chunkDelay={100}
-              maxClusterRadius={60}
-              spiderfyOnMaxZoom={true}
-              showCoverageOnHover={false}
-              zoomToBoundsOnClick={true}
-              disableClusteringAtZoom={18}
-              iconCreateFunction={createClusterCustomIcon}
-            >
+            {/* IoT Device Marker */}
+            {iotPosition && (
+              <Marker position={iotPosition} icon={IOTDeviceMarker}>
+                <Popup>
+                  <div style={{ 
+                    fontFamily: 'Arial, sans-serif',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    width: '300px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Header */}
+                    <div style={{ 
+                      padding: '12px 15px',
+                      background: '#e74c3c',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}>
+                      <div>
+                        <i className="bi bi-broadcast" style={{ marginRight: '8px' }}></i>
+                        Perangkat IoT
+                    </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>
+                        Aktif
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div style={{ padding: '15px' }}>
+                      {/* Status */}
+                      <div style={{ marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-activity" style={{ color: '#2ecc71', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Status Perangkat</span>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '13px',
+                          color: '#2ecc71',
+                          fontWeight: 'bold',
+                          textAlign: 'center'
+                        }}>
+                          <i className="bi bi-check-circle-fill" style={{ marginRight: '5px' }}></i> Terhubung dan Aktif
+                        </div>
+                      </div>
+                      
+                      {/* Koordinat */}
+                      <div style={{ marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                        </div>
+                        
+                        {/* Tampilan yang lebih responsif untuk koordinat */}
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Latitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {iotPosition[0].toFixed(6)}
+                            </div>
+                          </div>
+                          
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Longitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {iotPosition[1].toFixed(6)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* Marker untuk lokasi yang diklik */}
+            {clickedMarker && (
+              <Marker position={clickedMarker} icon={markerSelected}>
+                <Popup>
+                  <div style={{ 
+                    fontFamily: 'Arial, sans-serif',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    width: '300px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Header */}
+                    <div style={{ 
+                      padding: '12px 15px',
+                      background: '#9b59b6',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}>
+                      <div>
+                        <i className="bi bi-cursor-fill" style={{ marginRight: '8px' }}></i>
+                        Lokasi Terpilih
+                    </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>
+                        Terpilih
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div style={{ padding: '15px' }}>
+                      {/* Koordinat */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                        </div>
+                        
+                        {/* Tampilan yang lebih responsif untuk koordinat */}
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Latitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {clickedMarker[0].toFixed(6)}
+                            </div>
+                          </div>
+                          
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Longitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {clickedMarker[1].toFixed(6)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Footer */}
+                      <div style={{ 
+                        marginTop: '15px',
+                        display: 'flex',
+                        justifyContent: 'center'
+                      }}>
+                        <button
+                          onClick={() => setShowModal(true)}
+                          style={{
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <i className="bi bi-plus-circle"></i>
+                          Tambah Lokasi
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* Water location markers without clustering */}
               {waterLocationMarkers}
-            </MarkerClusterGroup>
             
             {/* Sensor data markers with clustering */}
             <MarkerClusterGroup
@@ -571,6 +1654,178 @@ const Dashboard = () => {
             </MarkerClusterGroup>
             
             {position && <RecenterAutomatically lat={position[0]} lng={position[1]} />}
+            
+            {/* Marker untuk hasil pencarian lokasi */}
+            {searchLocation && (
+              <Marker 
+                position={[parseFloat(searchLocation.lat), parseFloat(searchLocation.lon)]}
+              >
+                <Popup>
+                  <div style={{ 
+                    fontFamily: 'Arial, sans-serif',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    width: '300px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Header */}
+                    <div style={{ 
+                      padding: '12px 15px',
+                      background: '#1e88e5',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}>
+                      <div>
+                        <i className="bi bi-search" style={{ marginRight: '8px' }}></i>
+                        Hasil Pencarian
+                      </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>
+                        Lokasi
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div style={{ padding: '15px' }}>
+                      {/* Alamat */}
+                      <div style={{ marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-pin-map-fill" style={{ color: '#e74c3c', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Alamat Lokasi</span>
+                        </div>
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '13px',
+                          color: '#333',
+                          lineHeight: '1.5'
+                        }}>
+                          {searchLocation.display_name}
+                        </div>
+                      </div>
+                      
+                      {/* Koordinat */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                          <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                          <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                        </div>
+                        
+                        {/* Tampilan yang lebih responsif untuk koordinat */}
+                        <div style={{ 
+                          backgroundColor: '#f8f9fa',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Latitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {parseFloat(searchLocation.lat).toFixed(6)}
+                            </div>
+                          </div>
+                          
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ 
+                              minWidth: '70px', 
+                              fontSize: '13px', 
+                              color: '#666',
+                              fontWeight: 'bold'
+                            }}>
+                              Longitude:
+                            </div>
+                            <div style={{ 
+                              flex: '1',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              color: '#2980b9',
+                              padding: '4px 8px',
+                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                              borderRadius: '4px',
+                              wordBreak: 'break-all',
+                              textAlign: 'right'
+                            }}>
+                              {parseFloat(searchLocation.lon).toFixed(6)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Button untuk perbesar lokasi */}
+                      <div style={{ 
+                        marginTop: '15px',
+                        display: 'flex',
+                        justifyContent: 'center'
+                      }}>
+                        <button
+                          onClick={() => {
+                            if (mapRef.current) {
+                              mapRef.current.flyTo([parseFloat(searchLocation.lat), parseFloat(searchLocation.lon)], 18, {
+                                duration: 1.5,
+                                easeLinearity: 0.25
+                              });
+                            }
+                          }}
+                          style={{
+                            backgroundColor: '#1e88e5',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <i className="bi bi-zoom-in"></i>
+                          Perbesar Lokasi
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
           </MapContainer>
         </div>
       </div>
@@ -586,7 +1841,7 @@ const Dashboard = () => {
       />
 
       {/* Historical Data Modal */}
-      {showHistory && (
+      {showHistoryModal && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -603,126 +1858,197 @@ const Dashboard = () => {
             background: 'white', 
             padding: '20px', 
             borderRadius: '8px',
-            width: '80%',
-            maxWidth: '800px',
-            maxHeight: '80vh',
-            overflow: 'auto'
+            width: '90%',
+            maxWidth: '1200px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              position: 'relative'
             }}>
-              <h2 style={{ margin: 0 }}>Data Historis</h2>
+              <h2 style={{ 
+                margin: 0,
+                color: '#E62F2A',
+                textAlign: 'center',
+                width: '100%',
+                fontWeight: 'bold'
+              }}>Histori Lokasi Penelitian</h2>
               <button 
-                onClick={() => setShowHistory(false)}
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setHistoricalData([]);
+                }}
                 style={{
                   background: 'none',
                   border: 'none',
+                  color: '#64748b',
                   fontSize: '24px',
                   cursor: 'pointer',
-                  color: '#64748b'
+                  position: 'absolute',
+                  right: '20px',
                 }}
               >
                 ×
               </button>
             </div>
+
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <div className="controls-section" style={{ marginBottom: '20px' }}>
+                <div className="search-input-wrapper" style={{ position: 'relative' }}>
+                  <label htmlFor="history-search" className="visually-hidden">Cari lokasi</label>
+                  <input
+                    type="text"
+                    placeholder="Cari lokasi..."
+                    className="search-input"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    id="history-search"
+                    name="history-search"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 35px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      outline: 'none'
+                    }}
+                  />
+                  <i 
+                    className="bi bi-search" 
+                    style={{
+                      position: 'absolute',
+                      left: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#64748b',
+                      fontSize: '18px'
+                    }}
+                  />
+                </div>
+            </div>
             
             {loading ? (
               <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p style={{ 
+                    margin: '0 0 15px 0',
+                    color: '#333',
+                    fontSize: '16px',
+                    fontWeight: '500'
+                  }}>
+                    Memuat data...
+                  </p>
                 <div style={{
-                  display: 'inline-block',
-                  width: '40px',
-                  height: '40px',
-                  border: '3px solid #e2e8f0',
-                  borderTop: '3px solid #3498db',
+                    width: '50px',
+                    height: '50px',
+                    border: '5px solid #f3f3f3',
+                    borderTop: '5px solid #E62F2A',
                   borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto'
                 }}></div>
-                <p style={{ marginTop: '10px', color: '#64748b' }}>Memuat data...</p>
               </div>
             ) : (
-              <div className="box-feeds row d-flex justify-content-center mx-auto">
-                {historicalData.length > 0 ? (
-                  <div className="col-12">
-                    <div className="table-responsive">
-                      <table style={{ 
+                <div className="feeds-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: '20px',
+                  padding: '20px 0',
+                  position: 'relative',
+                  minHeight: '200px'
+                }}>
+                  {isPageLoading ? (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '10px',
                         width: '100%', 
-                        borderCollapse: 'collapse',
-                        marginTop: '20px'
+                      textAlign: 'center'
+                    }}>
+                      <div style={{
+                        width: '30px',
+                        height: '30px',
+                        border: '3px solid #f3f3f3',
+                        borderTop: '3px solid #E62F2A',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto'
+                      }}></div>
+                      <p style={{ 
+                        margin: 0,
+                        color: '#E62F2A',
+                        fontSize: '14px',
+                        textAlign: 'center',
+                        width: '100%'
                       }}>
-                        <thead>
-                          <tr style={{ 
-                            background: '#f8fafc',
-                            borderBottom: '2px solid #e2e8f0'
-                          }}>
-                            <th style={{ 
-                              padding: '12px',
-                              textAlign: 'left',
-                              color: '#1e293b',
-                              fontWeight: '600'
-                            }}>Tanggal</th>
-                            <th style={{ 
-                              padding: '12px',
-                              textAlign: 'left',
-                              color: '#1e293b',
-                              fontWeight: '600'
-                            }}>pH</th>
-                            <th style={{ 
-                              padding: '12px',
-                              textAlign: 'left',
-                              color: '#1e293b',
-                              fontWeight: '600'
-                            }}>Suhu</th>
-                            <th style={{ 
-                              padding: '12px',
-                              textAlign: 'left',
-                              color: '#1e293b',
-                              fontWeight: '600'
-                            }}>Kekeruhan</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {historicalData.map((data, index) => (
-                            <tr key={index} style={{
-                              borderBottom: '1px solid #e2e8f0',
-                              transition: 'all 0.2s ease'
-                            }}>
-                              <td style={{ 
-                                padding: '12px',
-                                color: '#1e293b'
-                              }}>
-                                {new Date(data.tanggal).toLocaleString()}
-                              </td>
-                              <td style={{ 
-                                padding: '12px',
-                                color: data.nilai_ph < 6 ? '#e74c3c' : '#2ecc71',
-                                fontWeight: '500'
-                              }}>
-                                {data.nilai_ph}
-                              </td>
-                              <td style={{ 
-                                padding: '12px',
-                                color: data.nilai_temperature > 30 ? '#e74c3c' : '#3498db',
-                                fontWeight: '500'
-                              }}>
-                                {data.nilai_temperature}°C
-                              </td>
-                              <td style={{ 
-                                padding: '12px',
-                                color: '#1e293b',
-                                fontWeight: '500'
-                              }}>
-                                {data.nilai_turbidity} NTU
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                        Memuat halaman...
+                      </p>
                     </div>
+                  ) : (
+                    currentItems.map((item) => (
+                      <div key={item.id} className="feed-card" style={{
+                        background: 'white',
+                        borderRadius: '8px',
+                        padding: '20px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        transition: 'all 0.3s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        height: '100%'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ marginBottom: '15px' }}>
+                            <i className="bi bi-geo-alt-fill" style={{ color: '#E62F2A' }}></i>
+                            <b> {item.name}</b>
+                          </h3>
+                          <p className="feed-address" style={{ marginBottom: '10px' }}>
+                            {item.address}
+                          </p>
+                          <p className="feed-date" style={{ color: '#64748b' }}>
+                            <i className="bi bi-calendar2-week-fill" style={{ color: '#E62F2A' }}></i> {item.date}
+                          </p>
+                    </div>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => {
+                            setPosition([parseFloat(item.lat), parseFloat(item.lon)]);
+                            setShowHistoryModal(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            marginTop: '15px',
+                            borderRadius: '100px',
+                            backgroundColor: '#E62F2A',
+                            padding: '10px',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            // ':hover': {
+                            //   backgroundColor: '#CD1B16'
+                            // }
+                          }}
+                        >
+                          Lihat di Peta <i className="bi bi-box-arrow-right"></i>
+                        </button>
                   </div>
-                ) : (
+                    ))
+                  )}
+                </div>
+              )}
+
+              {!loading && currentItems.length === 0 && (
                   <div style={{ 
                     textAlign: 'center', 
                     padding: '40px',
@@ -732,46 +2058,74 @@ const Dashboard = () => {
                     <p style={{ marginTop: '16px' }}>Tidak ada data historis tersedia</p>
                   </div>
                 )}
+            </div>
+
+            {!loading && totalPages > 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginTop: '20px',
+                gap: '10px',
+                padding: '20px 0',
+                borderTop: '1px solid #e2e8f0',
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isPageLoading}
+                  style={{
+                    borderColor: '#E62F2A',
+                    color: '#E62F2A',
+                    background: 'none',
+                    border: '1px solid #E62F2A',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    opacity: isPageLoading ? 0.5 : 1,
+                    transition: 'all 0.3s ease',
+                    // ':hover': {
+                    //   backgroundColor: '#CD1B16',
+                    //   color: 'white',
+                    //   borderColor: '#CD1B16'
+                    // }
+                  }}
+                >
+                  Sebelumnya
+                </button>
+                <span style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  color: '#64748b'
+                }}>
+                  Halaman {currentPage} dari {totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || isPageLoading}
+                  style={{
+                    borderColor: '#E62F2A',
+                    color: '#E62F2A',
+                    background: 'none',
+                    border: '1px solid #E62F2A',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    opacity: isPageLoading ? 0.5 : 1,
+                    transition: 'all 0.3s ease',
+                    // ':hover': {
+                    //   backgroundColor: '#CD1B16',
+                    //   color: 'white',
+                    //   borderColor: '#CD1B16'
+                    // }
+                  }}
+                >
+                  Selanjutnya
+                </button>
               </div>
             )}
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .marker-cluster-custom {
-          background: rgba(26, 115, 232, 0.6);
-          border-radius: 50%;
-          text-align: center;
-          font-weight: bold;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40px !important;
-          height: 40px !important;
-          margin-left: -20px !important;
-          margin-top: -20px !important;
-        }
-        
-        .cluster-marker {
-          font-size: 14px;
-          font-family: Arial, sans-serif;
-        }
-        
-        .leaflet-marker-icon {
-          filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
-        }
-        
-        .leaflet-marker-shadow {
-          opacity: 0.5 !important;
-        }
-      `}</style>
     </div>
   );
 };

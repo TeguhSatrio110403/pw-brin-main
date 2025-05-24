@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Line } from "react-chartjs-2";
-import { Pagination } from "react-bootstrap";
+import { Pagination, Form } from "react-bootstrap";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -95,6 +95,16 @@ const Feeds = () => {
     }
   });
 
+  // State untuk lokasi sungai
+  const [locations, setLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState(() => {
+    try {
+      return localStorage.getItem("selectedLocation") || "semua";
+    } catch (error) {
+      return "semua";
+    }
+  });
+
   const dataPerPage = 10;
 
   // Save to localStorage
@@ -106,16 +116,94 @@ const Feeds = () => {
     localStorage.setItem("currentPages", JSON.stringify(currentPages));
   }, [currentPages]);
 
-  // Fetch data from API
+  // Save selected location to localStorage
   useEffect(() => {
-    const fetchData = async () => {
+    localStorage.setItem("selectedLocation", selectedLocation);
+  }, [selectedLocation]);
+
+  // Fetch locations from server
+  useEffect(() => {
+    const fetchLocations = async () => {
       try {
         const response = await fetch(
-          "https://server-water-sensors-production.up.railway.app/getCurrentData",
+          "https://server-water-sensors.onrender.com/data_lokasi"
+        );
+
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+
+        const result = await response.json();
+
+        if (result && Array.isArray(result)) {
+          setLocations(result);
+        }
+      } catch (error) {
+        console.error("Error fetching locations:", error);
+      }
+    };
+
+    fetchLocations();
+  }, []);
+
+  // Fetch all data from API
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        const response = await fetch(
+          "https://server-water-sensors.onrender.com/data_combined"
+        );
+
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const formattedData = result.data
+            .filter(item => selectedLocation === "semua" || item.lokasi === selectedLocation)
+            .map(item => ({
+              accel_x: safeParseFloat(item.nilai_accel_x),
+              accel_y: safeParseFloat(item.nilai_accel_y),
+              accel_z: safeParseFloat(item.nilai_accel_z),
+              ph: safeParseFloat(item.nilai_ph),
+              temperature: safeParseFloat(item.nilai_temperature),
+              turbidity: safeParseFloat(item.nilai_turbidity),
+              speed: safeParseFloat(item.nilai_speed),
+              timestamp: new Date(item.tanggal).toLocaleTimeString()
+            }));
+
+          setSensorData({
+            accel_x: formattedData.map(d => d.accel_x),
+            accel_y: formattedData.map(d => d.accel_y),
+            accel_z: formattedData.map(d => d.accel_z),
+            ph: formattedData.map(d => d.ph),
+            temperature: formattedData.map(d => d.temperature),
+            turbidity: formattedData.map(d => d.turbidity),
+            speed: formattedData.map(d => d.speed),
+            timestamps: formattedData.map(d => d.timestamp),
+            lastTimestamp: formattedData[formattedData.length - 1]?.timestamp || null
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching all sensor data:", error);
+      }
+    };
+
+    fetchAllData();
+  }, [selectedLocation]);
+
+  // Update data periodically
+  useEffect(() => {
+    const fetchNewData = async () => {
+      try {
+        const response = await fetch(
+          "https://server-water-sensors.onrender.com/getCurrentData",
           {
             headers: {
-              "Last-Timestamp": sensorData.lastTimestamp || "0",
-            },
+              "Last-Timestamp": sensorData.lastTimestamp || "0"
+            }
           }
         );
 
@@ -128,20 +216,20 @@ const Feeds = () => {
         if (
           result.success &&
           result.data &&
-          result.data.message &&
-          (!sensorData.lastTimestamp || result.data.timestamp > sensorData.lastTimestamp)
+          (!sensorData.lastTimestamp || result.data.timestamp > sensorData.lastTimestamp) &&
+          (selectedLocation === "semua" || result.data.lokasi === selectedLocation)
         ) {
-          const timestamp = new Date(result.data.timestamp).toLocaleTimeString();
+          const timestamp = new Date().toLocaleTimeString();
 
           setSensorData((prevData) => ({
             ...prevData,
-            accel_x: [...prevData.accel_x, safeParseFloat(result.data.message.accel_x)],
-            accel_y: [...prevData.accel_y, safeParseFloat(result.data.message.accel_y)],
-            accel_z: [...prevData.accel_z, safeParseFloat(result.data.message.accel_z)],
-            ph: [...prevData.ph, safeParseFloat(result.data.message.ph)],
-            temperature: [...prevData.temperature, safeParseFloat(result.data.message.temperature)],
-            turbidity: [...prevData.turbidity, safeParseFloat(result.data.message.turbidity)],
-            speed: [...prevData.speed, safeParseFloat(result.data.message.speed)],
+            accel_x: [...prevData.accel_x, safeParseFloat(result.data.accel_x)],
+            accel_y: [...prevData.accel_y, safeParseFloat(result.data.accel_y)],
+            accel_z: [...prevData.accel_z, safeParseFloat(result.data.accel_z)],
+            ph: [...prevData.ph, safeParseFloat(result.data.ph)],
+            temperature: [...prevData.temperature, safeParseFloat(result.data.temperature)],
+            turbidity: [...prevData.turbidity, safeParseFloat(result.data.turbidity)],
+            speed: [...prevData.speed, safeParseFloat(result.data.speed)],
             timestamps: [...prevData.timestamps, timestamp],
             lastTimestamp: result.data.timestamp,
           }));
@@ -151,9 +239,9 @@ const Feeds = () => {
       }
     };
 
-    const interval = setInterval(fetchData, 1000);
+    const interval = setInterval(fetchNewData, 1000);
     return () => clearInterval(interval);
-  }, [sensorData.lastTimestamp]);
+  }, [sensorData.lastTimestamp, selectedLocation]);
 
   // Get paginated data
   const getPageData = (dataArray, timestampsArray, chartType) => {
@@ -410,14 +498,32 @@ const Feeds = () => {
   return (
     <div className="analisis-container">
       <h1 className="analisis-title">Statistik Data Langsung</h1>
+      
+      <div className="mb-4">
+        <Form.Group controlId="locationSelect">
+          <Form.Label>Pilih Lokasi Sungai</Form.Label>
+          <Form.Select 
+            value={selectedLocation}
+            onChange={(e) => setSelectedLocation(e.target.value)}
+            style={{ maxWidth: '300px' }}
+          >
+            <option value="semua">Semua Lokasi</option>
+            {locations.map((location) => (
+              <option key={location.id_lokasi} value={location.id_lokasi}>
+                {location.nama_sungai}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+      </div>
 
       {renderChart("Acceleration X", "Accel X", sensorData.accel_x, "accel_x", chartOptions.acceleration)}
       {renderChart("Acceleration Y", "Accel Y", sensorData.accel_y, "accel_y", chartOptions.acceleration)}
       {renderChart("Acceleration Z", "Accel Z", sensorData.accel_z, "accel_z", chartOptions.acceleration)}
       {renderChart("pH", "pH", sensorData.ph, "ph", chartOptions.ph)}
       {renderChart("Temperature (°C)", "Temperature (°C)", sensorData.temperature, "temperature", chartOptions.temperature)}
-      {renderChart("Turbidity", "Turbidity", sensorData.turbidity, "turbidity", chartOptions.turbidity)}
-      {renderChart("Speed", "Speed", sensorData.speed, "speed", chartOptions.speed)}
+      {renderChart("Turbidity (NTU)", "Turbidity", sensorData.turbidity, "turbidity", chartOptions.turbidity)}
+      {renderChart("Kecepatan Alat", "Speed", sensorData.speed, "speed", chartOptions.speed)}
     </div>
   );
 };
