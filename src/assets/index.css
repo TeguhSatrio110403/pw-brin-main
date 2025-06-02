@@ -360,12 +360,12 @@ a.tbl-mulai:hover {
   width: 100%;
 }
 
-.chart-section:hover {
+/* .chart-section:hover {
   transform: translateY(-3px);
   transform: translateY(-2px);
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
+} */
 
 .chart-title {
   text-align: center;
@@ -1101,7 +1101,6 @@ footer p {
 }
 
 .pagination-danger .page-link:hover {
-.pagination-danger .page-link:s {
   color: #cd1b16;
   background-color: #f8d7da;
   border-color: #f5c2c7;
@@ -1133,5 +1132,5 @@ footer p {
   height: 70px;
   width: auto;
   object-fit: contain;
-}}
+}
 

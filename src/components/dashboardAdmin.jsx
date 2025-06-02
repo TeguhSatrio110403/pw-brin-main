@@ -17,7 +17,8 @@ import {
   ConfigProvider,
   Select,
   Dropdown,
-  App
+  App,
+  Spin
 } from 'antd';
 import {
   DashboardOutlined,
@@ -53,6 +54,7 @@ const DashboardAdmin = () => {
   const [form] = Form.useForm();
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchText, setSearchText] = useState('');
   const navigate = useNavigate();
@@ -97,8 +99,20 @@ const DashboardAdmin = () => {
   ];
 
   useEffect(() => {
-    fetchData();
-  }, [activeMenu]);
+    const initializeData = async () => {
+      try {
+        setInitialLoading(true);
+        await fetchData();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        message.error('Gagal memuat data awal');
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    initializeData();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -124,17 +138,23 @@ const DashboardAdmin = () => {
           }
           break;
         case 'users':
-          const usersResponse = await axios.get(`${API_URL}/users`);
-          if (usersResponse.data && usersResponse.data.success) {
-            const userData = usersResponse.data.users || [];
-            const formattedData = userData.map(item => ({
-              id: item.id,
-              name: item.username,
-              email: item.email,
-              role: item.role,
-              date: item.last_login
-            }));
-            setUsers(formattedData);
+          try {
+            const usersResponse = await axios.get(`${API_URL}/users`);
+            if (usersResponse.data?.success && Array.isArray(usersResponse.data.users)) {
+              const formattedData = usersResponse.data.users.map(item => ({
+                id: item.id,
+                name: item.username,
+                email: item.email,
+                role: item.role,
+                date: item.last_login
+              }));
+              setUsers(formattedData);
+            } else {
+              message.error('Format data user tidak valid');
+            }
+          } catch (error) {
+            console.error('Error fetching users:', error);
+            message.error('Gagal mengambil data user');
           }
           break;
         default:
@@ -385,9 +405,10 @@ const DashboardAdmin = () => {
                   placeholder="Pilih Lokasi"
                   onChange={handleLocationChange}
                   allowClear
+                  aria-label="Pilih Lokasi"
                 >
                   {locations.map(location => (
-                    <Select.Option key={location.id} value={location.id}>
+                    <Select.Option key={location.id} value={location.id} aria-label={location.name}>
                       {location.name}
                     </Select.Option>
                   ))}
@@ -483,6 +504,7 @@ const DashboardAdmin = () => {
                 onSearch={handleSearch}
                 onChange={(e) => handleSearch(e.target.value)}
                 style={{ width: 300, borderRadius:'100px' }}
+                aria-label="Cari lokasi"
               />
             </div>
             <Table 
@@ -570,8 +592,11 @@ const DashboardAdmin = () => {
                 onSearch={handleUserSearch}
                 onChange={(e) => handleUserSearch(e.target.value)}
                 style={{ width: 300, borderRadius:'100px' }}
+                aria-label="Cari user"
               />
             </div>
+            {console.log('Rendering Users:', users)}
+            {console.log('Rendering Filtered Users:', filteredUsers)}
             <Table 
               dataSource={filteredUsers.length > 0 ? filteredUsers : users} 
               rowKey="id"
@@ -822,268 +847,311 @@ const DashboardAdmin = () => {
 
   return (
     <div className="d-flex">
-      <button 
-        className="btn btn-light" 
-        style={{ 
-          position: 'absolute',
-          top: '120px',
-          left: showSidebar ? '270px' : '20px',
-          zIndex: 1001,
-          transition: 'all 0.3s',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
-          padding: '0',
+      {initialLoading ? (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
-          border: '1px solid #e0e0e0',
-          backgroundColor: '#fff'
-        }}
-        onClick={() => setShowSidebar(!showSidebar)}
-      >
-        <i className={`bi bi-chevron-${showSidebar ? 'left' : 'right'}`}></i>
-      </button>
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{ 
+            background: 'white', 
+            padding: '20px', 
+            borderRadius: '8px',
+            textAlign: 'center',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <p style={{ 
+              margin: '0 0 15px 0',
+              color: '#333',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}>
+              Memuat Dashboard...
+            </p>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              border: '5px solid #f3f3f3',
+              borderTop: '5px solid #E62F2A',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto'
+            }}></div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button 
+            className="btn btn-light" 
+            style={{ 
+              position: 'absolute',
+              top: '120px',
+              left: showSidebar ? '270px' : '20px',
+              zIndex: 1001,
+              transition: 'all 0.3s',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              padding: '0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid #e0e0e0',
+              backgroundColor: '#fff'
+            }}
+            onClick={() => setShowSidebar(!showSidebar)}
+          >
+            <i className={`bi bi-chevron-${showSidebar ? 'left' : 'right'}`}></i>
+          </button>
 
-      <div 
-        className={`offcanvas offcanvas-start ${showSidebar ? 'show' : ''}`} 
-          style={{ 
-          width: '250px',
-          transform: showSidebar ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.3s ease-in-out',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.1)'
-        }} 
-        tabIndex="-1" 
-        id="offcanvasScrolling" 
-        aria-labelledby="offcanvasScrollingLabel"
-      >
-        <div className="offcanvas-header mb-3">
-          <div className="offcanvas-title" id="offcanvasScrollingLabel">
-            <img src="./logo.png" alt="Logo" className="logo" 
+          <div 
+            className={`offcanvas offcanvas-start ${showSidebar ? 'show' : ''}`} 
               style={{ 
-                width: '190px', 
-                height: 'auto' 
-              }} 
-            />
+              width: '250px',
+              transform: showSidebar ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 0.3s ease-in-out',
+              boxShadow: '2px 0 8px rgba(0,0,0,0.1)'
+            }} 
+            tabIndex="-1" 
+            id="offcanvasScrolling" 
+            aria-labelledby="offcanvasScrollingLabel"
+          >
+            <div className="offcanvas-header mb-3">
+              <div className="offcanvas-title" id="offcanvasScrollingLabel">
+                <img src="./logo.png" alt="Logo" className="logo" 
+                  style={{ 
+                    width: '190px', 
+                    height: 'auto' 
+                  }} 
+                />
+              </div>
+            </div>
+            <div className="offcanvas-body p-0">
+              <div className="list-group list-group-flush">
+                {menuItems.map(item => (
+                  <button
+                    key={item.key}
+                    className={`list-group-item list-group-item-action d-flex align-items-center ${activeMenu === item.key ? 'active' : ''}`}
+                    onClick={() => handleMenuClick(item.key)}
+                    style={{
+                      border: 'none',
+                      backgroundColor: activeMenu === item.key ? '#fff1f0' : 'transparent',
+                      color: activeMenu === item.key ? '#E62F2A' : '#333',
+                      padding: '12px 16px'
+                    }}
+                  >
+                    {item.icon}
+                    <span className="ms-2">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="offcanvas-body p-0">
-          <div className="list-group list-group-flush">
-            {menuItems.map(item => (
-              <button
-                key={item.key}
-                className={`list-group-item list-group-item-action d-flex align-items-center ${activeMenu === item.key ? 'active' : ''}`}
-                onClick={() => handleMenuClick(item.key)}
-                style={{
-                  border: 'none',
-                  backgroundColor: activeMenu === item.key ? '#fff1f0' : 'transparent',
-                  color: activeMenu === item.key ? '#E62F2A' : '#333',
-                  padding: '12px 16px'
-                }}
-              >
-                {item.icon}
-                <span className="ms-2">{item.label}</span>
-              </button>
-            ))}
+
+          <div 
+            className="flex-grow-1" 
+            style={{ 
+              marginLeft: showSidebar ? '250px' : '0',
+              marginTop:'50px',
+              padding: '24px',
+              transition: 'margin-left 0.3s ease-in-out'
+            }}
+          >
+            <div className="bg-white rounded shadow-sm p-4">
+              {renderContent()}
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div 
-        className="flex-grow-1" 
-        style={{ 
-          marginLeft: showSidebar ? '250px' : '0',
-          marginTop:'50px',
-          padding: '24px',
-          transition: 'margin-left 0.3s ease-in-out'
-        }}
-      >
-        <div className="bg-white rounded shadow-sm p-4">
-          {renderContent()}
-        </div>
-      </div>
-
-      <Modal
-        title={editingId ? 'Edit Data' : 'Tambah Data'}
-        open={isModalVisible}
-        onCancel={handleCancel}
-        footer={null}
-        id="modal-form"
-      >
-        <Form
-          form={form}
-          onFinish={activeMenu === 'users' ? handleUserSubmit : handleSubmit}
-          layout="vertical"
-          id="form-container"
-          name="form-container"
-        >
-          {activeMenu === 'users' && (
-            <>
-              <Form.Item
-                name="name"
-                label="Nama"
-                rules={[{ required: true, message: 'Nama harus diisi' }]}
-                id="form-item-name"
-              >
-                <Input 
-                  id="user-name" 
-                  name="user-name" 
-                  aria-label="Nama"
-                  autoComplete="name"
-                />
-              </Form.Item>
-              <Form.Item
-                name="email"
-                label="Email"
-                rules={[
-                  { required: true, message: 'Email harus diisi' },
-                  { 
-                    type: 'email',
-                    message: 'Format email tidak valid',
-                    pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-                  }
-                ]}
-                id="form-item-email"
-              >
-                <Input 
-                  id="user-email" 
-                  name="user-email" 
-                  aria-label="Email"
-                  autoComplete="email"
-                />
-              </Form.Item>
-              <Form.Item
-                name="role"
-                label="Role"
-                rules={[{ required: true, message: 'Role harus diisi' }]}
-                id="form-item-role"
-              >
-                <Select 
-                  id="user-role" 
-                  name="user-role"
-                  aria-label="Role"
-                >
-                  <Select.Option id="role-admin" name="role-admin" value="admin">Admin</Select.Option>
-                  <Select.Option id="role-pengamat" name="role-pengamat" value="pengamat">Pengamat</Select.Option>
-                </Select>
-              </Form.Item>
-              {!editingId && (
-                <Form.Item
-                  name="password"
-                  label="Password"
-                  rules={[{ required: true, message: 'Password harus diisi' }]}
-                  id="form-item-password"
-                >
-                  <Input.Password 
-                    id="user-password" 
-                    name="user-password" 
-                    aria-label="Password"
-                    autoComplete="new-password"
-                  />
-                </Form.Item>
-              )}
-            </>
-          )}
-          {activeMenu === 'sensors' && (
-            <>
-              <Form.Item
-                name="name"
-                label="Nama Sensor"
-                rules={[{ required: true, message: 'Nama sensor harus diisi' }]}
-                id="form-item-sensor-name"
-              >
-                <Input 
-                  id="sensor-name" 
-                  name="sensor-name" 
-                  aria-label="Nama Sensor"
-                  autoComplete="off"
-                />
-              </Form.Item>
-              <Form.Item
-                name="status"
-                label="Status"
-                rules={[{ required: true, message: 'Status harus diisi' }]}
-                id="form-item-sensor-status"
-              >
-                <Input 
-                  id="sensor-status" 
-                  name="sensor-status" 
-                  aria-label="Status"
-                  autoComplete="off"
-                />
-              </Form.Item>
-            </>
-          )}
-          {activeMenu === 'locations' && (
-            <>
-              <Form.Item
-                name="name"
-                label="Nama Sungai"
-                rules={[{ required: true, message: 'Nama sungai harus diisi' }]}
-                id="form-item-river-name"
-              >
-                <Input 
-                  id="river-name" 
-                  name="river-name" 
-                  aria-label="Nama Sungai"
-                  autoComplete="off"
-                />
-              </Form.Item>
-              <Form.Item
-                name="address"
-                label="Alamat"
-                rules={[{ required: true, message: 'Alamat harus diisi' }]}
-                id="form-item-river-address"
-              >
-                <Input.TextArea 
-                  id="river-address" 
-                  name="river-address" 
-                  rows={4} 
-                  aria-label="Alamat"
-                  autoComplete="off"
-                />
-              </Form.Item>
-              <Form.Item
-                name="coordinates"
-                label="Koordinat"
-                id="form-item-river-coordinates"
-              >
-                <Input 
-                  id="river-coordinates" 
-                  name="river-coordinates" 
-                  disabled 
-                  aria-label="Koordinat"
-                  autoComplete="off"
-                />
-              </Form.Item>
-              <Form.Item
-                name="date"
-                label="Tanggal"
-                id="form-item-river-date"
-              >
-                <Input 
-                  id="river-date" 
-                  name="river-date" 
-                  disabled 
-                  aria-label="Tanggal"
-                  autoComplete="off"
-                />
-              </Form.Item>
-            </>
-          )}
-          <Form.Item id="form-item-submit">
-            <Button 
-              type="primary" 
-              htmlType="submit"
-              style={{ borderRadius: '100px' }}
-              id="submit-button"
-              name="submit-button"
+          <Modal
+            title={editingId ? 'Edit Data' : 'Tambah Data'}
+            open={isModalVisible}
+            onCancel={handleCancel}
+            footer={null}
+            id="modal-form"
+          >
+            <Form
+              form={form}
+              onFinish={activeMenu === 'users' ? handleUserSubmit : handleSubmit}
+              layout="vertical"
+              id="form-container"
+              name="form-container"
             >
-              {editingId ? 'Update' : 'Simpan'}
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
+              {activeMenu === 'users' && (
+                <>
+                  <Form.Item
+                    name="name"
+                    label="Nama"
+                    rules={[{ required: true, message: 'Nama harus diisi' }]}
+                    id="form-item-name"
+                  >
+                    <Input 
+                      id="user-name" 
+                      name="user-name" 
+                      aria-label="Nama"
+                      autoComplete="name"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="email"
+                    label="Email"
+                    rules={[
+                      { required: true, message: 'Email harus diisi' },
+                      { 
+                        type: 'email',
+                        message: 'Format email tidak valid',
+                        pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+                      }
+                    ]}
+                    id="form-item-email"
+                  >
+                    <Input 
+                      id="user-email" 
+                      name="user-email" 
+                      aria-label="Email"
+                      autoComplete="email"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="role"
+                    label="Role"
+                    rules={[{ required: true, message: 'Role harus diisi' }]}
+                    id="form-item-role"
+                  >
+                    <Select 
+                      id="user-role" 
+                      name="user-role"
+                      aria-label="Role"
+                    >
+                      <Select.Option id="role-admin" name="role-admin" value="admin">Admin</Select.Option>
+                      <Select.Option id="role-pengamat" name="role-pengamat" value="pengamat">Pengamat</Select.Option>
+                    </Select>
+                  </Form.Item>
+                  {!editingId && (
+                    <Form.Item
+                      name="password"
+                      label="Password"
+                      rules={[{ required: true, message: 'Password harus diisi' }]}
+                      id="form-item-password"
+                    >
+                      <Input.Password 
+                        id="user-password" 
+                        name="user-password" 
+                        aria-label="Password"
+                        autoComplete="new-password"
+                      />
+                    </Form.Item>
+                  )}
+                </>
+              )}
+              {activeMenu === 'sensors' && (
+                <>
+                  <Form.Item
+                    name="name"
+                    label="Nama Sensor"
+                    rules={[{ required: true, message: 'Nama sensor harus diisi' }]}
+                    id="form-item-sensor-name"
+                  >
+                    <Input 
+                      id="sensor-name" 
+                      name="sensor-name" 
+                      aria-label="Nama Sensor"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="status"
+                    label="Status"
+                    rules={[{ required: true, message: 'Status harus diisi' }]}
+                    id="form-item-sensor-status"
+                  >
+                    <Input 
+                      id="sensor-status" 
+                      name="sensor-status" 
+                      aria-label="Status"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                </>
+              )}
+              {activeMenu === 'locations' && (
+                <>
+                  <Form.Item
+                    name="name"
+                    label="Nama Sungai"
+                    rules={[{ required: true, message: 'Nama sungai harus diisi' }]}
+                    id="form-item-river-name"
+                  >
+                    <Input 
+                      id="river-name" 
+                      name="river-name" 
+                      aria-label="Nama Sungai"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="address"
+                    label="Alamat"
+                    rules={[{ required: true, message: 'Alamat harus diisi' }]}
+                    id="form-item-river-address"
+                  >
+                    <Input.TextArea 
+                      id="river-address" 
+                      name="river-address" 
+                      rows={4} 
+                      aria-label="Alamat"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="coordinates"
+                    label="Koordinat"
+                    id="form-item-river-coordinates"
+                  >
+                    <Input 
+                      id="river-coordinates" 
+                      name="river-coordinates" 
+                      disabled 
+                      aria-label="Koordinat"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="date"
+                    label="Tanggal"
+                    id="form-item-river-date"
+                  >
+                    <Input 
+                      id="river-date" 
+                      name="river-date" 
+                      disabled 
+                      aria-label="Tanggal"
+                      autoComplete="off"
+                    />
+                  </Form.Item>
+                </>
+              )}
+              <Form.Item id="form-item-submit">
+                <Button 
+                  type="primary" 
+                  htmlType="submit"
+                  style={{ borderRadius: '100px' }}
+                  id="submit-button"
+                  name="submit-button"
+                >
+                  {editingId ? 'Update' : 'Simpan'}
+                </Button>
+              </Form.Item>
+            </Form>
+          </Modal>
+        </>
+      )}
     </div>
   );
 };
@@ -1105,8 +1173,16 @@ const AppWrapper = () => {
       }}
     >
       <App>
-      <DashboardAdmin />
+        <DashboardAdmin />
       </App>
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </ConfigProvider>
   );
 };

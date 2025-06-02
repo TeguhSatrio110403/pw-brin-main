@@ -86,8 +86,18 @@ const Analisis = () => {
       <Container>
         <div className="controls-section" style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="search-input-wrapper">
-              <i className="bi bi-search search-icon"></i>
+            <div className="search-input-wrapper" style={{ 
+              flex: 1,
+              marginRight: '20px',
+              position: 'relative'
+            }}>
+              <i className="bi bi-search search-icon" style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#666'
+              }}></i>
               <label htmlFor="sungai-search" className="visually-hidden">Cari sungai</label>
               <input
                 type="text"
@@ -96,6 +106,14 @@ const Analisis = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 id="sungai-search"
+                style={{
+                  width: '100%',
+                  padding: '8px 720px 8px 50px',
+                  borderRadius: '100px',
+                  border: '1px solid #ddd',
+                  fontSize: '16px',
+                  Marginleft: '5px'
+                }}
               />
             </div>
             
@@ -105,10 +123,18 @@ const Analisis = () => {
                 borderRadius: '100px',
                 color: '#E62F2A',
                 borderColor: '#E62F2A',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                padding: '8px 16px',
+                minWidth: '120px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontSize: '14px',
+                fontWeight: '500'
               }}
             >
-              <i className={`bi bi-sort-${sortOrder === 'desc' ? 'down' : 'up'}`} style={{ color: '#E62F2A', marginRight: '5px' }}></i>
+              <i className={`bi bi-sort-${sortOrder === 'desc' ? 'down' : 'up'}`} style={{ color: '#E62F2A' }}></i>
               {sortOrder === 'desc' ? 'Terbaru' : 'Terlama'}
             </Button>
           </div>
@@ -287,6 +313,9 @@ const Analisis = () => {
           padding: 20px;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
           transition: all 0.3s ease;
+          height: 280px;
+          display: flex;
+          flex-direction: column;
         }
         
         .feed-card:hover {
@@ -294,15 +323,43 @@ const Analisis = () => {
           box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
+        .feed-card h3 {
+          font-size: 20px;
+          margin-bottom: 15px;
+          height: 60px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          line-height: 1.3;
+        }
+        
         .feed-address {
           margin-bottom: 10px;
           color: #555;
+          height: 60px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          font-size: 14px;
+          line-height: 1.4;
         }
         
         .feed-date {
           color: #777;
-          font-size: 0.9rem;
+          font-size: 14px;
+          margin-top: 20px;
           margin-bottom: 15px;
+          height: 40px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          line-height: 1.4;
         }
         
         .learn-more-button {
@@ -314,6 +371,7 @@ const Analisis = () => {
           justify-content: center;
           align-items: center;
           gap: 8px;
+          margin-top: auto;
         }
       `}</style>
     </div>

@@ -107,7 +107,7 @@ const HookMqtt = () => {
         <Modal.Body>
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel X</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer X</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -118,17 +118,18 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel Y</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer Y</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -139,11 +140,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -151,7 +153,7 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel Z</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer Z</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -162,17 +164,18 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">pH</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Tingkat pH</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -183,11 +186,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -195,7 +199,7 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Temperature</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Suhu Air</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -206,17 +210,18 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Turbidity</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Tingkat Kekeruhan</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -227,11 +232,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -239,7 +245,7 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Speed</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Kecepatan Alat</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -250,11 +256,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: '#2ecc71',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
                   <br />
-                  <h5 className="text-center">{date}</h5>
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>

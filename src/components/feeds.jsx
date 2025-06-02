@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Line } from "react-chartjs-2";
-import { Pagination, Form } from "react-bootstrap";
+import { Pagination, Form, Spinner, Modal, Button, InputGroup, FormControl, Card } from "react-bootstrap";
+import { FaWater, FaMapMarkerAlt, FaCheck, FaDownload } from 'react-icons/fa';
+import { BsClock, BsWater, BsGeoAlt } from 'react-icons/bs';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,37 +25,8 @@ ChartJS.register(
 );
 
 const Feeds = () => {
-  // Helper functions
-  const ensureArray = (value) => {
-    if (!value) return [];
-    return Array.isArray(value) ? value : [];
-  };
-
-  const safeParseFloat = (value) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? 0 : num;
-  };
-
-  // Initial state with localStorage fallback
-  const [sensorData, setSensorData] = useState(() => {
-    try {
-      const savedData = localStorage.getItem("sensorData");
-      const parsedData = savedData ? JSON.parse(savedData) : {};
-      
-      return {
-        accel_x: ensureArray(parsedData.accel_x),
-        accel_y: ensureArray(parsedData.accel_y),
-        accel_z: ensureArray(parsedData.accel_z),
-        ph: ensureArray(parsedData.ph),
-        temperature: ensureArray(parsedData.temperature),
-        turbidity: ensureArray(parsedData.turbidity),
-        speed: ensureArray(parsedData.speed),
-        timestamps: ensureArray(parsedData.timestamps),
-        lastTimestamp: parsedData.lastTimestamp || null,
-      };
-    } catch (error) {
-      console.error("Error parsing sensorData from localStorage:", error);
-      return {
+  // State untuk data sensor
+  const [sensorData, setSensorData] = useState({
         accel_x: [],
         accel_y: [],
         accel_z: [],
@@ -63,27 +36,15 @@ const Feeds = () => {
         speed: [],
         timestamps: [],
         lastTimestamp: null,
-      };
-    }
   });
 
-  const [currentPages, setCurrentPages] = useState(() => {
-    try {
-      const savedPages = localStorage.getItem("currentPages");
-      const parsedPages = savedPages ? JSON.parse(savedPages) : {};
-      
-      return {
-        accel_x: parsedPages.accel_x || 1,
-        accel_y: parsedPages.accel_y || 1,
-        accel_z: parsedPages.accel_z || 1,
-        ph: parsedPages.ph || 1,
-        temperature: parsedPages.temperature || 1,
-        turbidity: parsedPages.turbidity || 1,
-        speed: parsedPages.speed || 1,
-      };
-    } catch (error) {
-      console.error("Error parsing currentPages from localStorage:", error);
-      return {
+  // State untuk lokasi
+  const [locations, setLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState("semua");
+  const [selectedTimeRange, setSelectedTimeRange] = useState("ALL");
+
+  // State untuk pagination
+  const [currentPages, setCurrentPages] = useState({
         accel_x: 1,
         accel_y: 1,
         accel_z: 1,
@@ -91,50 +52,43 @@ const Feeds = () => {
         temperature: 1,
         turbidity: 1,
         speed: 1,
-      };
-    }
   });
 
-  // State untuk lokasi sungai
-  const [locations, setLocations] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(() => {
-    try {
-      return localStorage.getItem("selectedLocation") || "semua";
-    } catch (error) {
-      return "semua";
-    }
-  });
+  // State untuk loading
+  const [isLoading, setIsLoading] = useState(false);
+
+  // State untuk modal dan search
+  const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredLocations, setFilteredLocations] = useState([]);
 
   const dataPerPage = 10;
 
-  // Save to localStorage
-  useEffect(() => {
-    localStorage.setItem("sensorData", JSON.stringify(sensorData));
-  }, [sensorData]);
+  const API_BASE_URL = "https://server-water-sensors.onrender.com";
 
-  useEffect(() => {
-    localStorage.setItem("currentPages", JSON.stringify(currentPages));
-  }, [currentPages]);
-
-  // Save selected location to localStorage
-  useEffect(() => {
-    localStorage.setItem("selectedLocation", selectedLocation);
-  }, [selectedLocation]);
+  // Konstanta untuk rentang waktu
+  const TIME_RANGES = [
+    { value: "ALL", label: "Semua Waktu" },
+    { value: "1H", label: "1 Jam Terakhir" },
+    { value: "3H", label: "3 Jam Terakhir" },
+    { value: "7H", label: "7 Jam Terakhir" },
+    { value: "1D", label: "1 Hari Terakhir" },
+    { value: "2D", label: "2 Hari Terakhir" },
+    { value: "3D", label: "3 Hari Terakhir" },
+    { value: "7D", label: "7 Hari Terakhir" },
+    { value: "1M", label: "1 Bulan Terakhir" },
+    { value: "3M", label: "3 Bulan Terakhir" },
+    { value: "6M", label: "6 Bulan Terakhir" },
+    { value: "1Y", label: "1 Tahun Terakhir" }
+  ];
 
   // Fetch locations from server
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const response = await fetch(
-          "https://server-water-sensors.onrender.com/data_lokasi"
-        );
-
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-
+        const response = await fetch(`${API_BASE_URL}/data_lokasi`);
+        if (!response.ok) throw new Error("Network response was not ok");
         const result = await response.json();
-
         if (result && Array.isArray(result)) {
           setLocations(result);
         }
@@ -146,112 +100,208 @@ const Feeds = () => {
     fetchLocations();
   }, []);
 
-  // Fetch all data from API
+  // Filter lokasi berdasarkan search term
   useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const response = await fetch(
-          "https://server-water-sensors.onrender.com/data_combined"
-        );
+    if (locations) {
+      const filtered = locations.filter(location =>
+        location.nama_sungai.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredLocations(filtered);
+    }
+  }, [searchTerm, locations]);
 
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
+  // Fungsi untuk mengambil semua data dengan pagination
+  const fetchAllData = async (url, page = 1) => {
+    let allData = [];
+    let currentPage = page;
+    let hasMoreData = true;
+
+    while (hasMoreData) {
+      try {
+        // Tambahkan parameter range ke URL jika bukan "ALL"
+        let apiUrl = url;
+        if (selectedTimeRange !== "ALL") {
+          apiUrl += `&range=${selectedTimeRange}`;
         }
+        apiUrl += `&page=${currentPage}`;
+
+        console.log('Fetching data from:', apiUrl);
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`API responded with status ${response.status}`);
 
         const result = await response.json();
 
-        if (result.success && result.data) {
-          const formattedData = result.data
-            .filter(item => selectedLocation === "semua" || item.lokasi === selectedLocation)
-            .map(item => ({
-              accel_x: safeParseFloat(item.nilai_accel_x),
-              accel_y: safeParseFloat(item.nilai_accel_y),
-              accel_z: safeParseFloat(item.nilai_accel_z),
-              ph: safeParseFloat(item.nilai_ph),
-              temperature: safeParseFloat(item.nilai_temperature),
-              turbidity: safeParseFloat(item.nilai_turbidity),
-              speed: safeParseFloat(item.nilai_speed),
-              timestamp: new Date(item.tanggal).toLocaleTimeString()
-            }));
-
-          setSensorData({
-            accel_x: formattedData.map(d => d.accel_x),
-            accel_y: formattedData.map(d => d.accel_y),
-            accel_z: formattedData.map(d => d.accel_z),
-            ph: formattedData.map(d => d.ph),
-            temperature: formattedData.map(d => d.temperature),
-            turbidity: formattedData.map(d => d.turbidity),
-            speed: formattedData.map(d => d.speed),
-            timestamps: formattedData.map(d => d.timestamp),
-            lastTimestamp: formattedData[formattedData.length - 1]?.timestamp || null
-          });
+        if (result.success && result.data && result.data.length > 0) {
+          allData = [...allData, ...result.data];
+          currentPage++;
+          hasMoreData = currentPage <= result.totalPage;
+        } else {
+          hasMoreData = false;
         }
       } catch (error) {
-        console.error("Error fetching all sensor data:", error);
+        console.error(`Error fetching page ${currentPage}:`, error);
+        hasMoreData = false;
       }
-    };
+    }
 
-    fetchAllData();
-  }, [selectedLocation]);
+    return allData;
+  };
 
-  // Update data periodically
+  // Fetch sensor data based on selected location and time range
   useEffect(() => {
-    const fetchNewData = async () => {
+    const fetchSensorData = async () => {
+      setIsLoading(true);
       try {
-        const response = await fetch(
-          "https://server-water-sensors.onrender.com/getCurrentData",
-          {
-            headers: {
-              "Last-Timestamp": sensorData.lastTimestamp || "0"
-            }
+        console.log('Fetching data for location:', selectedLocation, 'and time range:', selectedTimeRange);
+        
+        // Fungsi untuk mengkonversi range ke format yang sesuai
+        const getRangeFormat = (range) => {
+          switch(range) {
+            case '1H': return '1h';
+            case '3H': return '3h';
+            case '7H': return '7h';
+            case '1D': return '1d';
+            case '2D': return '2d';
+            case '3D': return '3d';
+            case '7D': return '7d';
+            case '1M': return '30d';
+            case '3M': return '90d';
+            case '6M': return '180d';
+            case '1Y': return '365d';
+            default: return '';
           }
-        );
+        };
 
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
+        const rangeFormat = getRangeFormat(selectedTimeRange);
+        const baseUrl = `${API_BASE_URL}/data_combined`;
+        let apiUrl = '';
+        
+        if (selectedLocation && selectedLocation !== "semua") {
+          apiUrl = `${baseUrl}/${selectedLocation}?limit=1000`;
+        } else {
+          apiUrl = `${baseUrl}?limit=1000`;
         }
 
+        // Tambahkan parameter range jika bukan "ALL"
+        if (selectedTimeRange !== "ALL" && rangeFormat) {
+          apiUrl += `&range=${rangeFormat}`;
+        }
+
+        console.log('API URL:', apiUrl);
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`API responded with status ${response.status}`);
+        
         const result = await response.json();
+        console.log('API Response:', result);
 
-        if (
-          result.success &&
-          result.data &&
-          (!sensorData.lastTimestamp || result.data.timestamp > sensorData.lastTimestamp) &&
-          (selectedLocation === "semua" || result.data.lokasi === selectedLocation)
-        ) {
-          const timestamp = new Date().toLocaleTimeString();
-
-          setSensorData((prevData) => ({
-            ...prevData,
-            accel_x: [...prevData.accel_x, safeParseFloat(result.data.accel_x)],
-            accel_y: [...prevData.accel_y, safeParseFloat(result.data.accel_y)],
-            accel_z: [...prevData.accel_z, safeParseFloat(result.data.accel_z)],
-            ph: [...prevData.ph, safeParseFloat(result.data.ph)],
-            temperature: [...prevData.temperature, safeParseFloat(result.data.temperature)],
-            turbidity: [...prevData.turbidity, safeParseFloat(result.data.turbidity)],
-            speed: [...prevData.speed, safeParseFloat(result.data.speed)],
-            timestamps: [...prevData.timestamps, timestamp],
-            lastTimestamp: result.data.timestamp,
-          }));
+        if (!result.success || !result.data) {
+          throw new Error('Invalid data format received from API');
         }
+
+        // Filter data berdasarkan rentang waktu yang dipilih
+        const now = new Date();
+        const filterDataByTimeRange = (date) => {
+          const dataDate = new Date(date);
+          const diffInHours = (now - dataDate) / (1000 * 60 * 60);
+          
+          switch(selectedTimeRange) {
+            case '1H': return diffInHours <= 1;
+            case '3H': return diffInHours <= 3;
+            case '7H': return diffInHours <= 7;
+            case '1D': return diffInHours <= 24;
+            case '2D': return diffInHours <= 48;
+            case '3D': return diffInHours <= 72;
+            case '7D': return diffInHours <= 168;
+            case '1M': return diffInHours <= 720;
+            case '3M': return diffInHours <= 2160;
+            case '6M': return diffInHours <= 4320;
+            case '1Y': return diffInHours <= 8760;
+            default: return true;
+          }
+        };
+
+        // Format dan filter data
+        const formattedData = result.data
+          .map(item => {
+            const date = new Date(item.tanggal);
+            const formattedDate = date.toLocaleString('id-ID', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            });
+
+            return {
+              accel_x: parseFloat(item.nilai_accel_x) || 0,
+              accel_y: parseFloat(item.nilai_accel_y) || 0,
+              accel_z: parseFloat(item.nilai_accel_z) || 0,
+              ph: parseFloat(item.nilai_ph) || 0,
+              temperature: parseFloat(item.nilai_temperature) || 0,
+              turbidity: parseFloat(item.nilai_turbidity) || 0,
+              speed: parseFloat(item.nilai_speed) || 0,
+              timestamp: formattedDate,
+              rawDate: date
+            };
+          })
+          .filter(item => filterDataByTimeRange(item.rawDate))
+          .sort((a, b) => b.rawDate - a.rawDate);
+
+        console.log('Filtered data:', formattedData);
+
+        // Update state dengan data yang sudah diformat
+        setSensorData({
+          accel_x: formattedData.map(d => d.accel_x),
+          accel_y: formattedData.map(d => d.accel_y),
+          accel_z: formattedData.map(d => d.accel_z),
+          ph: formattedData.map(d => d.ph),
+          temperature: formattedData.map(d => d.temperature),
+          turbidity: formattedData.map(d => d.turbidity),
+          speed: formattedData.map(d => d.speed),
+          timestamps: formattedData.map(d => d.timestamp),
+          lastTimestamp: formattedData[0]?.timestamp || null
+        });
+
+        // Reset pagination ke halaman pertama saat lokasi atau time range berubah
+        setCurrentPages({
+          accel_x: 1,
+          accel_y: 1,
+          accel_z: 1,
+          ph: 1,
+          temperature: 1,
+          turbidity: 1,
+          speed: 1,
+        });
       } catch (error) {
         console.error("Error fetching sensor data:", error);
+        setSensorData({
+          accel_x: [],
+          accel_y: [],
+          accel_z: [],
+          ph: [],
+          temperature: [],
+          turbidity: [],
+          speed: [],
+          timestamps: [],
+          lastTimestamp: null
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    const interval = setInterval(fetchNewData, 1000);
-    return () => clearInterval(interval);
-  }, [sensorData.lastTimestamp, selectedLocation]);
+    fetchSensorData();
+  }, [selectedLocation, selectedTimeRange]);
 
   // Get paginated data
   const getPageData = (dataArray, timestampsArray, chartType) => {
-    const safeData = ensureArray(dataArray);
-    const safeTimestamps = ensureArray(timestampsArray);
-    const page = currentPages[chartType] ?? 1;
+    const page = currentPages[chartType] || 1;
     const startIndex = (page - 1) * dataPerPage;
-    const endIndex = Math.min(startIndex + dataPerPage, safeData.length);
+    const endIndex = Math.min(startIndex + dataPerPage, dataArray.length);
 
-    if (startIndex >= safeData.length) {
+    if (startIndex >= dataArray.length) {
       return {
         data: [],
         labels: Array(dataPerPage).fill("").map((_, i) => (i + 1).toString()),
@@ -259,15 +309,11 @@ const Feeds = () => {
       };
     }
 
-    const labels = [];
-    for (let i = startIndex; i < endIndex; i++) {
-      labels.push((i + 1).toString());
-    }
-
+    // Data sudah terurut dari terbaru ke terlama
     return {
-      data: safeData.slice(startIndex, endIndex),
-      labels,
-      tooltipLabels: safeTimestamps.slice(startIndex, endIndex),
+      data: dataArray.slice(startIndex, endIndex),
+      labels: timestampsArray.slice(startIndex, endIndex),
+      tooltipLabels: timestampsArray.slice(startIndex, endIndex),
     };
   };
 
@@ -302,8 +348,7 @@ const Feeds = () => {
   // Handle page change
   const handlePageChange = (chartType, direction) => {
     setCurrentPages((prev) => {
-      const dataArray = ensureArray(sensorData[chartType]);
-      const totalPages = Math.max(1, Math.ceil(dataArray.length / dataPerPage));
+      const totalPages = Math.max(1, Math.ceil(sensorData[chartType].length / dataPerPage));
       const currentPage = prev[chartType] || 1;
       
       const newPage = direction === "next" 
@@ -316,10 +361,9 @@ const Feeds = () => {
 
   // Pagination controls component
   const PaginationControls = ({ chartType }) => {
-    const dataArray = ensureArray(sensorData[chartType]);
-    const totalPages = Math.max(1, Math.ceil(dataArray.length / dataPerPage));
+    const totalPages = Math.max(1, Math.ceil(sensorData[chartType].length / dataPerPage));
     const currentPage = currentPages[chartType] || 1;
-    const hasData = dataArray.length > 0;
+    const hasData = sensorData[chartType].length > 0;
 
     const getPageNumbers = () => {
       if (totalPages <= 1) return [1];
@@ -402,6 +446,21 @@ const Feeds = () => {
               context[0].dataIndex
             ];
           },
+          label: function(context) {
+            const value = context.raw;
+            const chartType = context.dataset.label.toLowerCase();
+            
+            if (chartType.includes('ph')) {
+              return `pH: ${value}`;
+            } else if (chartType.includes('temperature')) {
+              return `Suhu: ${value}°C`;
+            } else if (chartType.includes('turbidity')) {
+              return `Kekeruhan: ${value} NTU`;
+            } else if (chartType.includes('accel') || chartType.includes('speed')) {
+              return `Nilai: ${value} m/s`;
+            }
+            return `Nilai: ${value}`;
+          }
         },
       },
     },
@@ -482,48 +541,400 @@ const Feeds = () => {
     },
   };
 
-  // Render chart component
+  // Render chart component dengan pengecekan data
   const renderChart = (title, label, dataArray, chartType, options) => {
-    const useData = ensureArray(dataArray).length > 0 ? dataArray : Array(10).fill(0);
+    const hasData = dataArray && dataArray.length > 0;
+    const selectedLocationName = selectedLocation === "semua" 
+      ? "Semua Lokasi" 
+      : locations.find(loc => loc.id_lokasi === selectedLocation)?.nama_sungai || "Lokasi tidak ditemukan";
+    
+    const getTimeRangeLabel = (range) => {
+      const timeRange = TIME_RANGES.find(r => r.value === range);
+      return timeRange ? timeRange.label : range;
+    };
     
     return (
       <div className="chart-section">
         <h3 className="chart-title">{title}</h3>
-        <Line data={dataTemplate(label, useData, chartType)} options={options} />
-        <PaginationControls chartType={chartType} />
+        {isLoading ? (
+          <div className="text-center p-5">
+            <Spinner animation="border" style={{ color: '#E62F2A' }} />
+            <p className="mt-2">Memuat data...</p>
+          </div>
+        ) : !hasData ? (
+          <div className="text-center p-5">
+            <p className="text-muted">
+              {selectedTimeRange === "ALL" 
+                ? "Data statistik tidak tersedia untuk lokasi ini"
+                : `Tidak ada data untuk ${title} pada rentang waktu ${getTimeRangeLabel(selectedTimeRange)}`
+              }
+            </p>
+          </div>
+        ) : (
+          <>
+            <Line data={dataTemplate(label, dataArray, chartType)} options={options} />
+            <PaginationControls chartType={chartType} />
+          </>
+        )}
       </div>
     );
   };
 
+  // Fungsi untuk mengecek apakah semua data kosong
+  const isAllDataEmpty = () => {
+    return (
+      sensorData.accel_x.length === 0 &&
+      sensorData.accel_y.length === 0 &&
+      sensorData.accel_z.length === 0 &&
+      sensorData.ph.length === 0 &&
+      sensorData.temperature.length === 0 &&
+      sensorData.turbidity.length === 0 &&
+      sensorData.speed.length === 0
+    );
+  };
+
+  // Fungsi untuk mengkonversi data ke format CSV
+  const convertToCSV = (data) => {
+    const headers = [
+      'Tanggal',
+      'Accelerometer X',
+      'Accelerometer Y',
+      'Accelerometer Z',
+      'pH',
+      'Suhu Air',
+      'Tingkat Kekeruhan',
+      'Kecepatan Alat'
+    ];
+
+    const rows = data.map(item => [
+      item.timestamp,
+      item.accel_x,
+      item.accel_y,
+      item.accel_z,
+      item.ph,
+      item.temperature,
+      item.turbidity,
+      item.speed
+    ]);
+
+    return [headers, ...rows]
+      .map(row => row.join(','))
+      .join('\n');
+  };
+
+  // Fungsi untuk mengunduh data
+  const handleDownload = async () => {
+    try {
+      setIsLoading(true);
+      const baseUrl = `${API_BASE_URL}/data_combined`;
+      let apiUrl = '';
+      
+      if (selectedLocation && selectedLocation !== "semua") {
+        apiUrl = `${baseUrl}/${selectedLocation}?limit=1000`;
+      } else {
+        apiUrl = `${baseUrl}?limit=1000`;
+      }
+
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`API responded with status ${response.status}`);
+      
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        throw new Error('Invalid data format received from API');
+      }
+
+      // Format data untuk CSV
+      const formattedData = result.data.map(item => ({
+        timestamp: new Date(item.tanggal).toLocaleString('id-ID', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
+        accel_x: parseFloat(item.nilai_accel_x) || 0,
+        accel_y: parseFloat(item.nilai_accel_y) || 0,
+        accel_z: parseFloat(item.nilai_accel_z) || 0,
+        ph: parseFloat(item.nilai_ph) || 0,
+        temperature: parseFloat(item.nilai_temperature) || 0,
+        turbidity: parseFloat(item.nilai_turbidity) || 0,
+        speed: parseFloat(item.nilai_speed) || 0
+      }));
+
+      // Konversi ke CSV
+      const csv = convertToCSV(formattedData);
+      
+      // Buat blob dan download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // Set nama file berdasarkan lokasi dan waktu
+      const locationName = selectedLocation === "semua" 
+        ? "semua-lokasi" 
+        : locations.find(loc => loc.id_lokasi === selectedLocation)?.nama_sungai || "unknown";
+      const date = new Date().toISOString().split('T')[0];
+      link.setAttribute('href', url);
+      link.setAttribute('download', `data-sensor-${locationName}-${date}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading data:", error);
+      alert("Gagal mengunduh data. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="analisis-container">
-      <h1 className="analisis-title">Statistik Data Langsung</h1>
+      {/* <h1 className="analisis-title">Statistik Data Langsung</h1> */}
       
-      <div className="mb-4">
-        <Form.Group controlId="locationSelect">
-          <Form.Label>Pilih Lokasi Sungai</Form.Label>
-          <Form.Select 
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            style={{ maxWidth: '300px' }}
+      <div className="mb-4 d-flex justify-content-between align-items-center">
+        <div className="d-flex gap-3">
+          <Button 
+            variant="outline-danger" 
+            onClick={() => setShowModal(true)}
+            style={{ 
+              minWidth: '200px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderWidth: '1px',
+              borderColor: '#dc3545',
+              color: '#dc3545',
+              backgroundColor: 'transparent',
+              transition: 'all 0.2s ease-in-out'
+            }}
+            className="hover-effect"
           >
-            <option value="semua">Semua Lokasi</option>
-            {locations.map((location) => (
-              <option key={location.id_lokasi} value={location.id_lokasi}>
-                {location.nama_sungai}
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+            <BsGeoAlt style={{ fontSize: '16px' }} />
+            {selectedLocation === "semua" 
+              ? "Semua Lokasi" 
+              : locations.find(loc => loc.id_lokasi === selectedLocation)?.nama_sungai || "Pilih Lokasi"}
+          </Button>
+
+          <div style={{ position: 'relative' }}>
+            <Form.Select
+              id="timeRangeSelect"
+              name="timeRangeSelect"
+              value={selectedTimeRange}
+              onChange={(e) => setSelectedTimeRange(e.target.value)}
+              style={{ 
+                minWidth: '200px',
+                height: '38px',
+                borderColor: '#dc3545',
+                color: '#dc3545',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                paddingLeft: '40px'
+              }}
+              className="border-danger custom-select"
+              aria-label="Pilih rentang waktu"
+            >
+              {TIME_RANGES.map((range) => (
+                <option key={range.value} value={range.value}>
+                  {range.label}
+                </option>
+              ))}
+            </Form.Select>
+            <BsClock 
+              style={{ 
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: '16px',
+                color: '#dc3545',
+                pointerEvents: 'none'
+              }} 
+            />
+          </div>
+
+          <Button 
+            variant="outline-danger" 
+            onClick={handleDownload}
+            disabled={isLoading}
+            style={{ 
+              minWidth: '150px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderWidth: '1px',
+              borderColor: '#dc3545',
+              color: '#dc3545',
+              backgroundColor: 'transparent',
+              transition: 'all 0.2s ease-in-out'
+            }}
+            className="hover-effect"
+          >
+            <FaDownload style={{ fontSize: '16px' }} />
+            {isLoading ? 'Mengunduh...' : 'Unduh CSV'}
+          </Button>
+        </div>
       </div>
 
-      {renderChart("Acceleration X", "Accel X", sensorData.accel_x, "accel_x", chartOptions.acceleration)}
-      {renderChart("Acceleration Y", "Accel Y", sensorData.accel_y, "accel_y", chartOptions.acceleration)}
-      {renderChart("Acceleration Z", "Accel Z", sensorData.accel_z, "accel_z", chartOptions.acceleration)}
-      {renderChart("pH", "pH", sensorData.ph, "ph", chartOptions.ph)}
-      {renderChart("Temperature (°C)", "Temperature (°C)", sensorData.temperature, "temperature", chartOptions.temperature)}
-      {renderChart("Turbidity (NTU)", "Turbidity", sensorData.turbidity, "turbidity", chartOptions.turbidity)}
-      {renderChart("Kecepatan Alat", "Speed", sensorData.speed, "speed", chartOptions.speed)}
+      <style>
+        {`
+          .hover-effect:hover {
+            background-color: #dc3545 !important;
+            color: white !important;
+          }
+          
+          .hover-effect:hover svg {
+            color: white !important;
+          }
+          
+          .custom-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23dc3545' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 32px;
+          }
+
+          .custom-select:focus {
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+            border-color: #dc3545;
+          }
+
+          .custom-select option {
+            background-color: white;
+            color: #212529;
+          }
+
+          .custom-select option:checked {
+            background-color: #dc3545;
+            color: white;
+          }
+        `}
+      </style>
+
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Pilih Lokasi Sungai
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="search-input-wrapper mb-3" style={{ position: 'relative', flex: 1, marginRight: '20px' }}>
+            <FaMapMarkerAlt 
+              style={{ 
+                position: 'absolute', 
+                left: '12px', 
+                top: '50%', 
+                transform: 'translateY(-50%)',
+                color: '#6c757d'
+              }} 
+            />
+            <FormControl
+              id="location-search"
+              name="location-search"
+              placeholder="Cari lokasi..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                paddingLeft: '40px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px'
+              }}
+              aria-label="Cari lokasi sungai"
+            />
+          </div>
+          
+          <div className="location-list" style={{ maxHeight: '400px', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="row g-3 mx-0">
+              <div className="col-md-4 px-2">
+                <Card 
+                  className={`h-100 ${selectedLocation === "semua" ? 'border-danger' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    setSelectedLocation("semua");
+                    setShowModal(false);
+                    setSearchTerm("");
+                  }}
+                >
+                  <Card.Body className="d-flex flex-column justify-content-between">
+                    <div>
+                      <h5 className="mb-1">
+                        <FaWater className="me-2 text-primary" />
+                        Semua Lokasi
+                      </h5>
+                      <p className="text-muted mb-0">Menampilkan data dari semua lokasi</p>
+                    </div>
+                    {selectedLocation === "semua" && (
+                      <div className="text-end mt-2">
+                        <FaCheck className="text-danger" size={20} />
+                      </div>
+                    )}
+                  </Card.Body>
+                </Card>
+              </div>
+              
+              {filteredLocations.map((location) => (
+                <div key={location.id_lokasi} className="col-md-4 px-2">
+                  <Card 
+                    className={`h-100 ${selectedLocation === location.id_lokasi ? 'border-danger' : ''}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedLocation(location.id_lokasi);
+                      setShowModal(false);
+                      setSearchTerm("");
+                    }}
+                  >
+                    <Card.Body className="d-flex flex-column justify-content-between">
+                      <div>
+                        <h5 className="mb-1">
+                          <FaWater className="me-2 text-primary" />
+                          {location.nama_sungai}
+                        </h5>
+                        <p className="text-muted mb-0">
+                          <FaMapMarkerAlt className="me-1" />
+                          {location.alamat || 'Alamat tidak tersedia'}
+                        </p>
+                      </div>
+                      {selectedLocation === location.id_lokasi && (
+                        <div className="text-end mt-2">
+                          <FaCheck className="text-danger" size={20} />
+                        </div>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
+
+      {!isLoading && isAllDataEmpty() ? (
+        <div className="text-center p-5">
+          <h4 className="text-muted">Data statistik tidak tersedia untuk lokasi yang dipilih</h4>
+        </div>
+      ) : (
+        <>
+          {renderChart("Accelerometer X", "Accel X", sensorData.accel_x, "accel_x", chartOptions.acceleration)}
+          {renderChart("Accelerometer Y", "Accel Y", sensorData.accel_y, "accel_y", chartOptions.acceleration)}
+          {renderChart("Accelerometer Z", "Accel Z", sensorData.accel_z, "accel_z", chartOptions.acceleration)}
+          {renderChart("pH", "pH", sensorData.ph, "ph", chartOptions.ph)}
+          {renderChart("Suhu Air", "Suhu Air", sensorData.temperature, "temperature", chartOptions.temperature)}
+          {renderChart("Tingkat Kekeruhan", "Tingkat Kekeruhan", sensorData.turbidity, "turbidity", chartOptions.turbidity)}
+          {renderChart("Kecepatan Alat", "Speed", sensorData.speed, "speed", chartOptions.speed)}
+        </>
+      )}
     </div>
   );
 };
