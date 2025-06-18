@@ -116,7 +116,7 @@ export default function LokasiPenelitianModal({ isOpen, onClose, clickedLocation
                     </Form.Group>
                     <div className="button-container">
                         <Button type="submit" className="btn-simpan btn-danger">
-                            Mulai
+                            Simpan
                         </Button>
                         <Button type="button" onClick={onClose} className="btn-batal btn-outline-danger">
                             Batal

@@ -39,7 +39,7 @@ import { useRef } from 'react';
 const { Header, Sider, Content } = Layout;
 const { Search } = AntInput;
 
-const DashboardAdmin = () => {
+const DashboardObserver = () => {
   const { message } = App.useApp();
   const [activeMenu, setActiveMenu] = useState('locations');
   const [showSidebar, setShowSidebar] = useState(true);
@@ -55,18 +55,6 @@ const DashboardAdmin = () => {
   });
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchText, setSearchText] = useState('');
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [isUserModalVisible, setIsUserModalVisible] = useState(false);
-  const [userForm] = Form.useForm();
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [userLoading, setUserLoading] = useState(false);
-  const [userSearchText, setUserSearchText] = useState('');
-  const [anomaliData, setAnomaliData] = useState([]);
-  const [filteredAnomali, setFilteredAnomali] = useState([]);
-  const [anomaliLocations, setAnomaliLocations] = useState([]);
-  const [selectedAnomaliLocation, setSelectedAnomaliLocation] = useState('');
-  const [anomaliLoading, setAnomaliLoading] = useState(false);
   const navigate = useNavigate();
 
   const API_URL = 'https://server-water-sensors.onrender.com';
@@ -78,20 +66,10 @@ const DashboardAdmin = () => {
       label: 'Lokasi Penelitian',
     },
     {
-      key: 'users',
-      icon: <EditOutlined />,
-      label: 'Manajemen User',
-    },
-    {
-      key: 'anomali',
-      icon: <InfoCircleOutlined />,
-      label: 'Anomali Sensor',
-    },
-    {
-      key: 'statistik-sensor',
+      key: 'statistics',
       icon: <BarChartOutlined />,
-      label: 'Statistik Sensor',
-    },
+      label: 'Statistik',
+    }
   ];
 
   useEffect(() => {
@@ -296,127 +274,6 @@ const DashboardAdmin = () => {
     }
   ];
 
-  const fetchUsers = async () => {
-    setUserLoading(true);
-    try {
-      const res = await axios.get(`${API_URL}/users`);
-      if (res.data && res.data.users) {
-        setUsers(res.data.users);
-        setFilteredUsers(res.data.users);
-      }
-    } catch (err) {
-      message.error('Gagal mengambil data user');
-    } finally {
-      setUserLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeMenu === 'users') {
-      fetchUsers();
-    }
-  }, [activeMenu]);
-
-  const showUserModal = (record = null) => {
-    if (record) {
-      userForm.setFieldsValue(record);
-      setEditingUserId(record.id);
-    } else {
-      userForm.resetFields();
-      setEditingUserId(null);
-    }
-    setIsUserModalVisible(true);
-  };
-
-  const handleUserCancel = () => {
-    setIsUserModalVisible(false);
-    userForm.resetFields();
-    setEditingUserId(null);
-  };
-
-  const handleUserSubmit = async (values) => {
-    setUserLoading(true);
-    try {
-      if (editingUserId) {
-        await axios.put(`${API_URL}/users/${editingUserId}`, values);
-        message.success('User berhasil diperbarui');
-      } else {
-        await axios.post(`${API_URL}/users`, values);
-        message.success('User berhasil ditambahkan');
-      }
-      handleUserCancel();
-      fetchUsers();
-    } catch (err) {
-      message.error('Gagal menyimpan user');
-    } finally {
-      setUserLoading(false);
-    }
-  };
-
-  const handleUserDelete = async (id) => {
-    setUserLoading(true);
-    try {
-      await axios.delete(`${API_URL}/users/${id}`);
-      message.success('User berhasil dihapus');
-      fetchUsers();
-    } catch (err) {
-      message.error('Gagal menghapus user');
-    } finally {
-      setUserLoading(false);
-    }
-  };
-
-  const handleUserSearch = (value) => {
-    setUserSearchText(value);
-    const filtered = users.filter(
-      (item) =>
-        item.username.toLowerCase().includes(value.toLowerCase()) ||
-        item.email.toLowerCase().includes(value.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-  };
-
-  useEffect(() => {
-    if (userSearchText) {
-      handleUserSearch(userSearchText);
-    } else {
-      setFilteredUsers(users);
-    }
-  }, [users, userSearchText]);
-
-  const fetchAnomaliData = async () => {
-    setAnomaliLoading(true);
-    try {
-      const res = await axios.get(`${API_URL}/anomali-sensor`); // Ganti endpoint jika perlu
-      if (res.data) {
-        setAnomaliData(res.data);
-        // Ambil lokasi unik
-        const locations = Array.from(new Set(res.data.map(item => item.location)));
-        setAnomaliLocations(locations);
-      }
-    } catch (err) {
-      message.error('Gagal mengambil data anomali sensor');
-    } finally {
-      setAnomaliLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeMenu === 'anomali') {
-      fetchAnomaliData();
-    }
-  }, [activeMenu]);
-
-  useEffect(() => {
-    let filtered = anomaliData.filter(item =>
-      (item.turbidity > 100 || item.pH > 9 || item.temperature > 35)
-    );
-    if (selectedAnomaliLocation) {
-      filtered = filtered.filter(item => item.location === selectedAnomaliLocation);
-    }
-    setFilteredAnomali(filtered);
-  }, [anomaliData, selectedAnomaliLocation]);
-
   const renderContent = () => {
     switch (activeMenu) {
       case 'locations':
@@ -519,150 +376,11 @@ const DashboardAdmin = () => {
             </Row>
           </>
         );
-      case 'users':
+      case 'statistics':
         return (
-          <>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Space>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => showUserModal()}
-                  style={{ borderRadius: '100px' }}
-                >
-                  Tambah User
-                </Button>
-              </Space>
-              <Search
-                id="user-search"
-                name="user-search"
-                placeholder="Cari user..."
-                allowClear
-                enterButton={<SearchOutlined />}
-                onSearch={handleUserSearch}
-                onChange={(e) => handleUserSearch(e.target.value)}
-                style={{ width: 300, borderRadius: '100px' }}
-                aria-label="Cari user"
-              />
-            </div>
-            <Table
-              dataSource={filteredUsers}
-              rowKey="id"
-              loading={userLoading}
-              columns={[
-                { title: 'ID', dataIndex: 'id', key: 'id' },
-                { title: 'Username', dataIndex: 'username', key: 'username' },
-                { title: 'Email', dataIndex: 'email', key: 'email' },
-                { title: 'Role', dataIndex: 'role', key: 'role' },
-                { title: 'Last Login', dataIndex: 'last_login', key: 'last_login' },
-                {
-                  title: 'Aksi',
-                  key: 'aksi',
-                  render: (_, record) => (
-                    <Space>
-                      <Button icon={<EditOutlined />} onClick={() => showUserModal(record)} style={{ color: '#E62F2A', borderColor: '#E62F2A' }} />
-                      <Button icon={<DeleteOutlined />} danger onClick={() => handleUserDelete(record.id)} />
-                    </Space>
-                  ),
-                },
-              ]}
-              pagination={{ pageSize: 8 }}
-            />
-            <Modal
-              title={editingUserId ? 'Edit User' : 'Tambah User'}
-              open={isUserModalVisible}
-              onCancel={handleUserCancel}
-              footer={null}
-              id="modal-user-form"
-            >
-              <Form
-                form={userForm}
-                onFinish={handleUserSubmit}
-                layout="vertical"
-                id="form-user-container"
-                name="form-user-container"
-              >
-                <Form.Item
-                  name="username"
-                  label={<label htmlFor="user-username-input">Username</label>}
-                  rules={[{ required: true, message: 'Username harus diisi' }]}
-                >
-                  <Input id="user-username-input" name="user-username" autoComplete="off" />
-                </Form.Item>
-                <Form.Item
-                  name="email"
-                  label={<label htmlFor="user-email-input">Email</label>}
-                  rules={[{ required: true, message: 'Email harus diisi' }]}
-                >
-                  <Input id="user-email-input" name="user-email" autoComplete="off" />
-                </Form.Item>
-                <Form.Item
-                  name="role"
-                  label={<label htmlFor="user-role-input">Role</label>}
-                  rules={[{ required: true, message: 'Role harus diisi' }]}
-                >
-                  <Select id="user-role-input" name="user-role" options={[
-                    { value: 'admin', label: 'Admin' },
-                    { value: 'pengamat', label: 'Pengamat' },
-                  ]} />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label={<label htmlFor="user-password-input">Password</label>}
-                  rules={editingUserId ? [] : [{ required: true, message: 'Password harus diisi' }]}
-                >
-                  <Input.Password id="user-password-input" name="user-password" autoComplete="new-password" />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" htmlType="submit" style={{ borderRadius: '100px' }} id="submit-user-button" name="submit-user-button">
-                    {editingUserId ? 'Update' : 'Simpan'}
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Modal>
-          </>
-        );
-      case 'anomali':
-        return (
-          <Card title="Anomali Sensor">
-            <div style={{ marginBottom: 16, maxWidth: 300 }}>
-              <Select
-                allowClear
-                placeholder="Filter Lokasi"
-                style={{ width: '100%' }}
-                value={selectedAnomaliLocation || undefined}
-                onChange={val => setSelectedAnomaliLocation(val || '')}
-                options={anomaliLocations.map(loc => ({ value: loc, label: loc }))}
-              />
-            </div>
-            {anomaliLoading ? (
-              <Spin />
-            ) : filteredAnomali.length === 0 ? (
-              <p>Tidak ada data anomali yang ditemukan.</p>
-            ) : (
-              <Row gutter={[16, 16]}>
-                {filteredAnomali.map((item, idx) => (
-                  <Col xs={24} sm={12} md={8} lg={6} key={idx}>
-                    <Card
-                      style={{ borderLeft: '5px solid #E62F2A', borderRadius: 12 }}
-                      bodyStyle={{ padding: 16 }}
-                    >
-                      <div><b>Lokasi:</b> {item.location}</div>
-                      <div><b>Turbidity:</b> {item.turbidity}</div>
-                      <div><b>pH:</b> {item.pH}</div>
-                      <div><b>Temperature:</b> {item.temperature}°C</div>
-                      <div><b>Waktu:</b> {item.timestamp}</div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            )}
-          </Card>
-        );
-      case 'statistik-sensor':
-        return (
-          <Card title="Statistik Sensor">
-            <p>Statistik sensor akan ditampilkan di sini.</p>
+          <Card title="Statistik">
+            {/* Implementasi grafik statistik akan ditambahkan di sini */}
+            <p>Statistik akan ditampilkan di sini</p>
           </Card>
         );
       default:
@@ -908,7 +626,7 @@ const AppWrapper = () => {
       }}
     >
       <App>
-        <DashboardAdmin />
+        <DashboardObserver />
       </App>
       <style>
         {`

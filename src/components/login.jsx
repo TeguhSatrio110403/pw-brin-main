@@ -21,16 +21,24 @@ const login = () => {
   // Check if user is already logged in
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn');
-    if (isLoggedIn) {
-      window.location.href = '/dashboard';
+    if (isLoggedIn === 'true') {
+      navigate('/dashboard');
     }
-  }, []);
+  }, [navigate]);
+
+  // Fungsi untuk logout
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   // Validasi koneksi server
   const checkServerConnection = async () => {
     try {
       const response = await axios.get(API_URL, {
-        timeout: 5000, // timeout 5 detik
+        timeout: 5000,
         headers: { 'Accept': 'text/plain' }
       });
       return response.status === 200;
@@ -75,7 +83,6 @@ const login = () => {
     setErrorMessage('');
 
     try {
-      // Cek koneksi server terlebih dahulu
       const isConnected = await checkServerConnection();
       if (!isConnected) {
         showAlert('error', 'Tidak dapat terhubung ke server. Periksa koneksi Anda dan coba lagi.');
@@ -83,17 +90,15 @@ const login = () => {
       }
 
       const response = await axios.post(`${API_URL}auth/login`, {
-        identifier: username, // menggunakan identifier untuk username/email
+        identifier: username,
         password
       });
 
-      console.log('Admin login response:', response.data);
-
       if (response.data.token) {
-        localStorage.setItem('isLoggedIn', true);
+        localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        window.location.href = '/dashboardAdmin';
+        navigate('/dashboardAdmin');
       } else {
         showAlert('error', 'Login gagal: Token tidak ditemukan');
       }
@@ -115,7 +120,6 @@ const login = () => {
     setErrorMessage('');
 
     try {
-      // Cek koneksi server terlebih dahulu
       const isConnected = await checkServerConnection();
       if (!isConnected) {
         showAlert('error', 'Tidak dapat terhubung ke server. Periksa koneksi Anda dan coba lagi.');
@@ -123,14 +127,12 @@ const login = () => {
       }
 
       const response = await axios.post(`${API_URL}auth/guest`);
-      
-      console.log('Guest login response:', response.data);
 
       if (response.data.token) {
-        localStorage.setItem('isLoggedIn', true);
+        localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       } else {
         showAlert('error', 'Login sebagai tamu gagal: Token tidak ditemukan');
       }
@@ -154,7 +156,6 @@ const login = () => {
     setErrorMessage('');
 
     try {
-      // Cek koneksi server terlebih dahulu
       const isConnected = await checkServerConnection();
       if (!isConnected) {
         showAlert('error', 'Tidak dapat terhubung ke server. Periksa koneksi Anda dan coba lagi.');
@@ -162,17 +163,15 @@ const login = () => {
       }
 
       const response = await axios.post(`${API_URL}auth/login`, {
-        identifier: username, // menggunakan identifier untuk username/email
+        identifier: username,
         password
       });
 
-      console.log('User login response:', response.data);
-
       if (response.data.token) {
-        localStorage.setItem('isLoggedIn', true);
+        localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       } else {
         showAlert('error', 'Login gagal: Token tidak ditemukan');
       }
@@ -226,7 +225,7 @@ const login = () => {
         />
       )}
 
-      <div className="login-toggle-container">
+      {/* <div className="login-toggle-container">
         <div className="login-toggle">
           <button 
             className={`toggle-button ${!isAdmin ? 'active' : ''}`}
@@ -241,7 +240,7 @@ const login = () => {
             Admin Login
           </button>
         </div>
-      </div>
+      </div> */}
 
       <form onSubmit={isAdmin ? handleAdminLogin : handleRegularLogin}>
         <div className="form-input">

@@ -14,7 +14,10 @@ import 'react-circular-progressbar/dist/styles.css';
 import DataOdometer from '../service/hook/index';
 import LokasiPenelitian from "../service/hook/formdata";
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+import { Alert } from 'antd';
 
 // Custom icons from the HTML code
 const markerLocation = new L.Icon({
@@ -60,7 +63,11 @@ const MapEventHandler = ({ onMapClick }) => {
   return null;
 };
 
+// Tambahkan API key OpenRouteService
+const OPENROUTE_API_KEY = '5b3ce3597851110001cf6248e4c8c0c0c0c84b4c0c0c0c0c0c0c0c0c0c0c0c0c';
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [position, setPosition] = useState(null);
   const [previousPosition, setPreviousPosition] = useState(null);
   const [waterLocations, setWaterLocations] = useState([]);
@@ -85,26 +92,53 @@ const Dashboard = () => {
   const [serverStatus, setServerStatus] = useState('checking');
   const [showStatus, setShowStatus] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [searchLocation, setSearchLocation] = useState(null);
+  const [routingControl, setRoutingControl] = useState(null);
+  const [showRoute, setShowRoute] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const socketRef = useRef(null);
   const mapRef = useRef(null);
   const API_URL = 'https://server-water-sensors.onrender.com';
 
-  // Cek status admin dari localStorage saat komponen dimount
+  // Cek status admin dan guest dari localStorage saat komponen dimount
   useEffect(() => {
-    // Periksa apakah user saat ini adalah admin berdasarkan data di localStorage atau sessionStorage
-    const checkAdminStatus = () => {
+    const checkUserStatus = () => {
       const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       
       if (userInfo.role === 'admin' || user.role === 'admin') {
         setIsAdmin(true);
+        setIsGuest(false);
+      } else if (userInfo.role === 'guest' || user.role === 'guest') {
+        setIsGuest(true);
+        setIsAdmin(false);
+      } else {
+        setIsAdmin(false);
+        setIsGuest(false);
       }
     };
     
-    checkAdminStatus();
+    checkUserStatus();
   }, []);
+
+  // Cek status login saat komponen dimount
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    if (isLoggedIn !== 'true') {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // Fungsi untuk logout
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   // Fungsi untuk mengecek status server
   const checkServerStatus = async () => {
@@ -254,7 +288,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchWaterLocations();
     fetchSensorData();
-    getUserLocation();
+    getCurrentPosition();
   }, []);
 
   // Clean up geolocation watch
@@ -467,10 +501,12 @@ const Dashboard = () => {
               backgroundColor: '#f8f9fa',
               borderTop: '1px solid #e2e8f0',
               display: 'flex',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              gap: '10px'
             }}>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation(); // Mencegah event bubbling
                   if (mapRef.current) {
                     mapRef.current.setView(location.position, 18);
                   }
@@ -493,12 +529,95 @@ const Dashboard = () => {
                 <i className="bi bi-zoom-in"></i>
                 Perbesar Lokasi
               </button>
+
+              {position && !showRoute && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Mencegah event bubbling
+                    if (position) {
+                      // Hapus rute yang ada jika ada
+                      if (routingControl) {
+                        mapRef.current.removeControl(routingControl);
+                      }
+
+                      // Buat rute menggunakan Leaflet Routing Machine
+                      const route = L.Routing.control({
+                        waypoints: [
+                          L.latLng(position[0], position[1]),
+                          L.latLng(location.position[0], location.position[1])
+                        ],
+                        routeWhileDragging: false,
+                        show: false,
+                        addWaypoints: false,
+                        draggableWaypoints: false,
+                        fitSelectedRoutes: false,
+                        showAlternatives: false,
+                        lineOptions: {
+                          styles: [
+                            { color: '#1e88e5', weight: 4, opacity: 0.8 }
+                          ],
+                          extendToWaypoints: true,
+                          missingRouteTolerance: 0
+                        },
+                        createMarker: function() { return null; }
+                      }).addTo(mapRef.current);
+
+                      // Simpan referensi ke kontrol rute
+                      setRoutingControl(route);
+                      setShowRoute(true);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#1e88e5',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <i className="bi bi-signpost-split"></i>
+                  Tampilkan Rute
+                </button>
+              )}
+
+              {showRoute && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Mencegah event bubbling
+                    clearRoute();
+                  }}
+                  style={{
+                    backgroundColor: '#E62F2A',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <i className="bi bi-x-circle"></i>
+                  Hapus Rute
+                </button>
+              )}
             </div>
           </div>
         </Popup>
       </Marker>
     ));
-  }, [waterLocations, mapRef]);
+  }, [waterLocations, mapRef, position, showRoute, routingControl]);
 
   // Sensor data markers
   const sensorMarkers = useMemo(() => {
@@ -754,57 +873,75 @@ const Dashboard = () => {
     });
   }, [sensorData, sensorAddresses]);
 
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      const options = {
-        enableHighAccuracy: true,
-        timeout: 10000, // Meningkatkan timeout menjadi 10 detik
-        maximumAge: 0
-      };
-
-      const successCallback = (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const newLocation = [latitude, longitude];
-        setPosition(newLocation);
-      };
-
-      const errorCallback = (error) => {
-        console.error("Error getting location:", error);
-        // Default ke lokasi Jakarta jika error
-        setPosition([-6.34605, 106.69156]);
-        
-        // Tampilkan pesan error yang lebih informatif
-        let errorMessage = "Tidak dapat mendapatkan lokasi Anda. ";
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage += "Akses lokasi ditolak. Mohon izinkan akses lokasi untuk fitur ini.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage += "Informasi lokasi tidak tersedia.";
-            break;
-          case error.TIMEOUT:
-            errorMessage += "Permintaan lokasi timeout. Mohon coba lagi.";
-            break;
-          default:
-            errorMessage += "Terjadi kesalahan saat mengambil lokasi.";
-        }
-        alert("Peringatan", errorMessage);
-      };
-
-      // Coba dapatkan lokasi
-      const id = navigator.geolocation.watchPosition(
-        successCallback,
-        errorCallback,
-        options
-      );
+  const getAddressFromCoordinates = async (lat, lng) => {
+    try {
+      const response = await fetch(`https://server-water-sensors.onrender.com/api/geocode?lat=${lat}&lon=${lng}`);
       
-      setWatchId(id);
-    } else {
-      console.error("Geolocation is not supported by this browser.");
-      // Default ke lokasi Jakarta jika browser tidak mendukung geolocation
-      setPosition([-6.34605, 106.69156]);
-      alert("Peringatan", "Browser Anda tidak mendukung geolocation. Menggunakan lokasi default.");
+      if (!response.ok) {
+        throw new Error('Gagal mendapatkan alamat');
+      }
+      
+      const data = await response.json();
+      return data.display_name || 'Alamat tidak tersedia';
+    } catch (error) {
+      console.error('Error getting address:', error);
+      return 'Alamat tidak tersedia';
     }
+  };
+
+  const getCurrentPosition = () => {
+    if (!navigator.geolocation) {
+      console.error("Geolocation tidak didukung oleh browser Anda");
+      setError("Geolocation tidak didukung oleh browser Anda");
+      return;
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+
+    const successCallback = (position) => {
+      const { latitude, longitude } = position.coords;
+      setPosition([latitude, longitude]);
+      setError(null);
+      setRetryCount(0);
+    };
+
+    const errorCallback = (error) => {
+      console.error("Error getting location:", error);
+      let errorMessage = "";
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Akses lokasi ditolak. Mohon izinkan akses lokasi di pengaturan browser Anda.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Informasi lokasi tidak tersedia. Pastikan GPS Anda aktif.";
+          break;
+        case error.TIMEOUT:
+          errorMessage = "Permintaan lokasi timeout. Mohon coba lagi.";
+          break;
+        default:
+          errorMessage = "Terjadi kesalahan saat mendapatkan lokasi.";
+      }
+      
+      setError(errorMessage);
+      
+      if (retryCount < 3) {
+        console.log(`Retrying location fetch... Attempt ${retryCount + 1}`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          getCurrentPosition();
+        }, 2000);
+      } else {
+        console.error("Maksimum percobaan mendapatkan lokasi tercapai");
+        setError("Gagal mendapatkan lokasi setelah beberapa percobaan. Mohon periksa pengaturan GPS dan koneksi internet Anda.");
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(successCallback, errorCallback, options);
   };
 
   const resetMapPosition = () => {
@@ -827,18 +964,19 @@ const Dashboard = () => {
     }
   };
 
+  // Modifikasi fungsi handleLocationSelect
   const handleLocationSelect = (location) => {
     setPreviousPosition(position);
     setSearchLocation(location);
-    setShowSearchResults(false);
-    setSearchQuery(location.display_name);
     
-    // Fokus peta ke lokasi hasil pencarian dengan animasi
-    if (mapRef.current) {
-      mapRef.current.flyTo([parseFloat(location.lat), parseFloat(location.lon)], 16, {
-        duration: 1.5, // durasi animasi dalam detik
-        easeLinearity: 0.25 // efek smoothing
-      });
+    // Terbang ke lokasi yang dipilih
+    mapRef.current.flyTo(location.position, 15, {
+      duration: 2
+    });
+
+    // Buat rute jika posisi pengguna tersedia
+    if (position) {
+      createRoute(position, location.position);
     }
   };
 
@@ -858,6 +996,31 @@ const Dashboard = () => {
   };
 
   const handleMapClick = async (e) => {
+    // Jika user adalah guest, tampilkan pesan dan return
+    if (isGuest) {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #f44336;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: fadeInOut 5s ease-in-out;
+      `;
+      notification.textContent = "Maaf, akun guest tidak memiliki akses untuk menambah data lokasi.";
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 5000);
+      return;
+    }
+
     const { lat, lng } = e.latlng;
     const address = await getAddress(lat, lng);
     
@@ -909,9 +1072,74 @@ const Dashboard = () => {
     }
   };
 
+  // Fungsi untuk menghapus rute
+  const clearRoute = () => {
+    if (routingControl) {
+      mapRef.current.removeControl(routingControl);
+      setRoutingControl(null);
+      setShowRoute(false);
+    }
+  };
+
+  // Modifikasi fungsi untuk membuat rute
+  const createRoute = (start, end) => {
+    if (routingControl) {
+      mapRef.current.removeControl(routingControl);
+    }
+
+    const route = L.Routing.control({
+      waypoints: [
+        L.latLng(start[0], start[1]),
+        L.latLng(end[0], end[1])
+      ],
+      routeWhileDragging: false,
+      show: false,
+      addWaypoints: false,
+      draggableWaypoints: false,
+      fitSelectedRoutes: false,
+      showAlternatives: false,
+      lineOptions: {
+        styles: [
+          { color: '#1e88e5', weight: 4, opacity: 0.8 }
+        ],
+        extendToWaypoints: true,
+        missingRouteTolerance: 0
+      },
+      createMarker: function() { return null; },
+      serviceUrl: 'https://api.openrouteservice.org/v2/directions/driving-car',
+      requestParameters: {
+        api_key: OPENROUTE_API_KEY
+      }
+    }).addTo(mapRef.current);
+
+    setRoutingControl(route);
+    setShowRoute(true);
+  };
+
+  // Fungsi untuk mendapatkan status alert
+  const getServerStatusAlert = () => {
+    switch (serverStatus) {
+      case 'connected':
+        return {
+          type: 'success',
+          message: 'Server Terhubung'
+        };
+      case 'disconnected':
+        return {
+          type: 'error',
+          message: 'Server Terputus'
+        };
+      default:
+        return {
+          type: 'info',
+          message: 'Memeriksa Status Server'
+        };
+    }
+  };
+
   return (
     <div>
-      {/* Status Server Indicator */}
+      {/* Status Server Alert */}
       {showStatus && (
         <div style={{
           position: 'fixed',
@@ -919,28 +1147,20 @@ const Dashboard = () => {
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000,
-          padding: '12px 24px',
-          borderRadius: '8px',
-          backgroundColor: serverStatus === 'connected' ? '#4CAF50' : 
-                          serverStatus === 'disconnected' ? '#f44336' : '#ff9800',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-          fontSize: '16px',
-          fontWeight: '500',
-          animation: 'fadeInOut 5s ease-in-out',
-          opacity: showStatus ? 1 : 0,
-          transition: 'opacity 0.3s ease-in-out'
+          width: '90%',
+          maxWidth: '500px'
         }}>
-          <i className={`bi bi-${serverStatus === 'connected' ? 'check-circle' : 
-                         serverStatus === 'disconnected' ? 'x-circle' : 'arrow-repeat'}`}
-             style={{ fontSize: '20px' }}></i>
-          <span>
-            {serverStatus === 'connected' ? 'Server Terhubung' : 
-             serverStatus === 'disconnected' ? 'Server Terputus' : 'Memeriksa Server...'}
-          </span>
+          <Alert
+            message={getServerStatusAlert().message}
+            type={getServerStatusAlert().type}
+            showIcon
+            closable
+            onClose={() => setShowStatus(false)}
+            style={{
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              borderRadius: '8px'
+            }}
+          />
         </div>
       )}
 
@@ -999,6 +1219,10 @@ const Dashboard = () => {
           overflow: hidden;
           clip: rect(0, 0, 0, 0);
           border: 0;
+        }
+
+        .leaflet-control-attribution {
+          display: none !important;
         }
       `}</style>
 
@@ -1214,6 +1438,7 @@ const Dashboard = () => {
             updateWhenZooming={false}
             updateWhenIdle={false}
             ref={mapRef}
+            attributionControl={false}
           >
             <MapEventHandler onMapClick={handleMapClick} />
             <TileLayer
@@ -1787,14 +2012,16 @@ const Dashboard = () => {
                         </div>
                       </div>
                       
-                      {/* Button untuk perbesar lokasi */}
+                      {/* Buttons */}
                       <div style={{ 
                         marginTop: '15px',
                         display: 'flex',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        gap: '10px'
                       }}>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation(); // Mencegah event bubbling
                             if (mapRef.current) {
                               mapRef.current.flyTo([parseFloat(searchLocation.lat), parseFloat(searchLocation.lon)], 18, {
                                 duration: 1.5,
@@ -1820,6 +2047,89 @@ const Dashboard = () => {
                           <i className="bi bi-zoom-in"></i>
                           Perbesar Lokasi
                         </button>
+
+                        {position && !showRoute && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Mencegah event bubbling
+                              if (position) {
+                                // Hapus rute yang ada jika ada
+                                if (routingControl) {
+                                  mapRef.current.removeControl(routingControl);
+                                }
+
+                                // Buat rute menggunakan Leaflet Routing Machine
+                                const route = L.Routing.control({
+                                  waypoints: [
+                                    L.latLng(position[0], position[1]),
+                                    L.latLng(parseFloat(searchLocation.lat), parseFloat(searchLocation.lon))
+                                  ],
+                                  routeWhileDragging: false,
+                                  show: false,
+                                  addWaypoints: false,
+                                  draggableWaypoints: false,
+                                  fitSelectedRoutes: false,
+                                  showAlternatives: false,
+                                  lineOptions: {
+                                    styles: [
+                                      { color: '#1e88e5', weight: 4, opacity: 0.8 }
+                                    ],
+                                    extendToWaypoints: true,
+                                    missingRouteTolerance: 0
+                                  },
+                                  createMarker: function() { return null; }
+                                }).addTo(mapRef.current);
+
+                                // Simpan referensi ke kontrol rute
+                                setRoutingControl(route);
+                                setShowRoute(true);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: '#1e88e5',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <i className="bi bi-signpost-split"></i>
+                            Tampilkan Rute
+                          </button>
+                        )}
+
+                        {showRoute && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Mencegah event bubbling
+                              clearRoute();
+                            }}
+                            style={{
+                              backgroundColor: '#E62F2A',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <i className="bi bi-x-circle"></i>
+                            Hapus Rute
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2022,8 +2332,17 @@ const Dashboard = () => {
                         <button
                           className="btn btn-danger"
                           onClick={() => {
-                            setPosition([parseFloat(item.lat), parseFloat(item.lon)]);
+                            const selectedLocation = [parseFloat(item.lat), parseFloat(item.lon)];
+                            // Hanya mengubah posisi peta tanpa mengubah posisi pengguna
                             setShowHistoryModal(false);
+                            
+                            // Tambahkan animasi focus marker
+                            if (mapRef.current) {
+                              mapRef.current.flyTo(selectedLocation, 16, {
+                                duration: 1.5,
+                                easeLinearity: 0.25
+                              });
+                            }
                           }}
                           style={{
                             width: '100%',

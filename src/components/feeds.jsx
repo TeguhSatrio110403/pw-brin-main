@@ -822,14 +822,20 @@ const Feeds = () => {
         `}
       </style>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-        <Modal.Header closeButton>
+      <Modal 
+        show={showModal} 
+        onHide={() => setShowModal(false)} 
+        size="lg"
+        centered
+        className="location-modal"
+      >
+        <Modal.Header closeButton className="border-0 pb-0">
           <Modal.Title>
             Pilih Lokasi Sungai
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <div className="search-input-wrapper mb-3" style={{ position: 'relative', flex: 1, marginRight: '20px' }}>
+        <Modal.Body className="pt-3">
+          <div className="search-input-wrapper mb-4" style={{ position: 'relative', flex: 1 }}>
             <FaMapMarkerAlt 
               style={{ 
                 position: 'absolute', 
@@ -842,38 +848,50 @@ const Feeds = () => {
             <FormControl
               id="location-search"
               name="location-search"
-              placeholder="Cari lokasi..."
+              placeholder="Cari lokasi sungai..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 paddingLeft: '40px',
-                borderRadius: '8px',
+                borderRadius: '12px',
                 border: '1px solid #ced4da',
-                fontSize: '14px'
+                fontSize: '14px',
+                height: '45px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
               }}
               aria-label="Cari lokasi sungai"
             />
           </div>
           
-          <div className="location-list" style={{ maxHeight: '400px', overflowY: 'auto', overflowX: 'hidden' }}>
+          <div className="location-list" style={{ 
+            maxHeight: '400px', 
+            overflowY: 'auto', 
+            overflowX: 'hidden',
+            padding: '0 4px'
+          }}>
             <div className="row g-3 mx-0">
               <div className="col-md-4 px-2">
                 <Card 
-                  className={`h-100 ${selectedLocation === "semua" ? 'border-danger' : ''}`}
-                  style={{ cursor: 'pointer' }}
+                  className={`h-100 location-card ${selectedLocation === "semua" ? 'selected' : ''}`}
+                  style={{ 
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  }}
                   onClick={() => {
                     setSelectedLocation("semua");
                     setShowModal(false);
                     setSearchTerm("");
                   }}
                 >
-                  <Card.Body className="d-flex flex-column justify-content-between">
+                  <Card.Body className="d-flex flex-column justify-content-between p-3">
                     <div>
-                      <h5 className="mb-1">
-                        <FaWater className="me-2 text-primary" />
+                      <h5 className="mb-2">
                         Semua Lokasi
                       </h5>
-                      <p className="text-muted mb-0">Menampilkan data dari semua lokasi</p>
+                      <p className="text-muted mb-0 small">Menampilkan data dari semua lokasi</p>
                     </div>
                     {selectedLocation === "semua" && (
                       <div className="text-end mt-2">
@@ -887,21 +905,26 @@ const Feeds = () => {
               {filteredLocations.map((location) => (
                 <div key={location.id_lokasi} className="col-md-4 px-2">
                   <Card 
-                    className={`h-100 ${selectedLocation === location.id_lokasi ? 'border-danger' : ''}`}
-                    style={{ cursor: 'pointer' }}
+                    className={`h-100 location-card ${selectedLocation === location.id_lokasi ? 'selected' : ''}`}
+                    style={{ 
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      border: '1px solid #e9ecef',
+                      borderRadius: '12px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    }}
                     onClick={() => {
                       setSelectedLocation(location.id_lokasi);
                       setShowModal(false);
                       setSearchTerm("");
                     }}
                   >
-                    <Card.Body className="d-flex flex-column justify-content-between">
+                    <Card.Body className="d-flex flex-column justify-content-between p-3">
                       <div>
-                        <h5 className="mb-1">
-                          <FaWater className="me-2 text-primary" />
+                        <h5 className="mb-2">
                           {location.nama_sungai}
                         </h5>
-                        <p className="text-muted mb-0">
+                        <p className="text-muted mb-0 small">
                           <FaMapMarkerAlt className="me-1" />
                           {location.alamat || 'Alamat tidak tersedia'}
                         </p>
@@ -919,6 +942,61 @@ const Feeds = () => {
           </div>
         </Modal.Body>
       </Modal>
+
+      <style>
+        {`
+          .location-modal .modal-content {
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+          }
+
+          .location-modal .modal-header {
+            padding: 1.5rem 1.5rem 0.5rem;
+          }
+
+          .location-modal .modal-body {
+            padding: 1rem 1.5rem 1.5rem;
+          }
+
+          .location-card {
+            transition: all 0.3s ease;
+          }
+
+          .location-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+          }
+
+          .location-card.selected {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5;
+          }
+
+          .location-list::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .location-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+          }
+
+          .location-list::-webkit-scrollbar-thumb {
+            background: #dc3545;
+            border-radius: 4px;
+          }
+
+          .location-list::-webkit-scrollbar-thumb:hover {
+            background: #c82333;
+          }
+
+          .search-input-wrapper input:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+          }
+        `}
+      </style>
 
       {!isLoading && isAllDataEmpty() ? (
         <div className="text-center p-5">

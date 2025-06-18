@@ -12,25 +12,41 @@ const NavBar = () => {
     role: "",
   });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isObserver, setIsObserver] = useState(false);
 
   // Ambil data user dari localStorage saat komponen di-mount
   useEffect(() => {
     if (isLoggedIn) {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      // Periksa juga userInfo untuk kompatibilitas
-      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      console.log("User data from localStorage:", user); // Debug log
       
-      setUserInfo({
-        username: user.username || userInfo.username || "N/A",
-        email: user.email || userInfo.email || "N/A",
-        role: user.role || userInfo.role || "guest",
-      });
-      
-      // Set state admin berdasarkan role
-      setIsAdmin(
-        (user.role && user.role.toLowerCase() === "admin") || 
-        (userInfo.role && userInfo.role.toLowerCase() === "admin")
-      );
+      // Set userInfo berdasarkan data user yang login
+      if (user && user.role) {
+        const role = user.role.toLowerCase();
+        console.log("User role:", role); // Debug log
+        
+        setUserInfo({
+          username: user.username || "Guest User",
+          email: user.email || "guest@gmail.com",
+          role: role
+        });
+        
+        // Set state admin dan observer berdasarkan role
+        setIsAdmin(role === "admin");
+        setIsObserver(role === "observer" || role === "pengamat");
+        
+        console.log("Is Admin:", role === "admin"); // Debug log
+        console.log("Is Observer:", role === "observer" || role === "pengamat"); // Debug log
+      } else {
+        // Jika tidak ada data user atau role, set sebagai guest
+        setUserInfo({
+          username: "Guest",
+          email: "N/A",
+          role: "guest"
+        });
+        setIsAdmin(false);
+        setIsObserver(false);
+      }
     }
   }, [isLoggedIn]);
 
@@ -38,18 +54,22 @@ const NavBar = () => {
     localStorage.removeItem("isLoggedIn"); // Hapus status login
     localStorage.removeItem("token"); // Hapus token
     localStorage.removeItem("user"); // Hapus data user
-    localStorage.removeItem("userInfo"); // Hapus userInfo juga
     setShowModal(false); // Tutup modal
     window.location.reload(); // Muat ulang halaman untuk memperbarui UI
   };
 
   // Fungsi untuk mendapatkan label role dalam Bahasa Indonesia
   const getRoleLabel = (role) => {
+    if (!role) return "Tamu";
+    
     switch (role.toLowerCase()) {
       case "admin":
         return "Admin";
       case "observer":
+      case "pengamat":
         return "Pengamat";
+      case "guest":
+        return "Guest";
       default:
         return "Tamu";
     }
@@ -57,11 +77,16 @@ const NavBar = () => {
 
   // Fungsi untuk mendapatkan kelas warna badge berdasarkan role
   const getRoleBadgeClass = (role) => {
+    if (!role) return "bg-secondary";
+    
     switch (role.toLowerCase()) {
       case "admin":
         return "bg-danger"; // Merah untuk admin
       case "observer":
+      case "pengamat":
         return "bg-primary"; // Biru untuk pengamat
+      case "guest":
+        return "bg-secondary"; // Abu-abu untuk guest
       default:
         return "bg-secondary"; // Abu-abu untuk tamu
     }
@@ -140,6 +165,17 @@ const NavBar = () => {
                           <i className="bi bi-gear-fill me-2"></i>Admin Dashboard
                         </Dropdown.Item>
                       )}
+
+                      {/* Link ke Observer Dashboard jika user adalah observer */}
+                      {isObserver && (
+                        <Dropdown.Item 
+                          as={Link} 
+                          to="/dashboardObserver" 
+                          className="text-primary"
+                        >
+                          <i className="bi bi-eye-fill me-2"></i>Observer Dashboard
+                        </Dropdown.Item>
+                      )}
                       
                       <Dropdown.Item onClick={() => setShowModal(true)} className="text-danger">
                         <i className="bi bi-box-arrow-right me-2"></i>Logout
@@ -206,6 +242,15 @@ const NavBar = () => {
                   <Nav.Item>
                     <Link to="/dashboardAdmin" className="nav-link item-list py-3 text-danger">
                       <i className="bi bi-gear-fill me-2"></i>Admin Dashboard
+                    </Link>
+                  </Nav.Item>
+                )}
+
+                {/* Link ke Observer Dashboard jika user adalah observer */}
+                {isObserver && (
+                  <Nav.Item>
+                    <Link to="/dashboardObserver" className="nav-link item-list py-3 text-primary">
+                      <i className="bi bi-eye-fill me-2"></i>Observer Dashboard
                     </Link>
                   </Nav.Item>
                 )}
