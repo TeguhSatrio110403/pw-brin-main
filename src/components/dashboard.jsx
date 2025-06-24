@@ -96,8 +96,6 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [searchLocation, setSearchLocation] = useState(null);
-  const [routingControl, setRoutingControl] = useState(null);
-  const [showRoute, setShowRoute] = useState(false);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   
@@ -531,64 +529,7 @@ const Dashboard = () => {
                 Perbesar Lokasi
               </button>
 
-              {position && !showRoute && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Mencegah event bubbling
-                    if (position) {
-                      // Hapus rute yang ada jika ada
-                      if (routingControl) {
-                        mapRef.current.removeControl(routingControl);
-                      }
-
-                      // Buat rute menggunakan Leaflet Routing Machine
-                      const route = L.Routing.control({
-                        waypoints: [
-                          L.latLng(position[0], position[1]),
-                          L.latLng(location.position[0], location.position[1])
-                        ],
-                        routeWhileDragging: false,
-                        show: false,
-                        addWaypoints: false,
-                        draggableWaypoints: false,
-                        fitSelectedRoutes: false,
-                        showAlternatives: false,
-                        lineOptions: {
-                          styles: [
-                            { color: '#1e88e5', weight: 4, opacity: 0.8 }
-                          ],
-                          extendToWaypoints: true,
-                          missingRouteTolerance: 0
-                        },
-                        createMarker: function() { return null; }
-                      }).addTo(mapRef.current);
-
-                      // Simpan referensi ke kontrol rute
-                      setRoutingControl(route);
-                      setShowRoute(true);
-                    }
-                  }}
-                  style={{
-                    backgroundColor: '#1e88e5',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <i className="bi bi-signpost-split"></i>
-                  Tampilkan Rute
-                </button>
-              )}
-
-              {showRoute && (
+              {position && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // Mencegah event bubbling
@@ -618,7 +559,7 @@ const Dashboard = () => {
         </Popup>
       </Marker>
     ));
-  }, [waterLocations, mapRef, position, showRoute, routingControl]);
+  }, [waterLocations, mapRef, position]);
 
   // Sensor data markers
   const sensorMarkers = useMemo(() => {
@@ -969,15 +910,14 @@ const Dashboard = () => {
   const handleLocationSelect = (location) => {
     setPreviousPosition(position);
     setSearchLocation(location);
-    
-    // Terbang ke lokasi yang dipilih
-    mapRef.current.flyTo(location.position, 15, {
-      duration: 2
-    });
+    setShowSearchResults(false); // hide search result setelah klik
 
-    // Buat rute jika posisi pengguna tersedia
-    if (position) {
-      createRoute(position, location.position);
+    // Fokus ke marker hasil search
+    if (mapRef.current) {
+      mapRef.current.flyTo([parseFloat(location.lat), parseFloat(location.lon)], 16, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
     }
   };
 
@@ -1109,41 +1049,6 @@ const Dashboard = () => {
       setRoutingControl(null);
       setShowRoute(false);
     }
-  };
-
-  // Modifikasi fungsi untuk membuat rute
-  const createRoute = (start, end) => {
-    if (routingControl) {
-      mapRef.current.removeControl(routingControl);
-    }
-
-    const route = L.Routing.control({
-      waypoints: [
-        L.latLng(start[0], start[1]),
-        L.latLng(end[0], end[1])
-      ],
-      routeWhileDragging: false,
-      show: false,
-      addWaypoints: false,
-      draggableWaypoints: false,
-      fitSelectedRoutes: false,
-      showAlternatives: false,
-      lineOptions: {
-        styles: [
-          { color: '#1e88e5', weight: 4, opacity: 0.8 }
-        ],
-        extendToWaypoints: true,
-        missingRouteTolerance: 0
-      },
-      createMarker: function() { return null; },
-      serviceUrl: 'https://api.openrouteservice.org/v2/directions/driving-car',
-      requestParameters: {
-        api_key: OPENROUTE_API_KEY
-      }
-    }).addTo(mapRef.current);
-
-    setRoutingControl(route);
-    setShowRoute(true);
   };
 
   // Fungsi untuk mendapatkan status alert
@@ -2085,89 +1990,6 @@ const Dashboard = () => {
                           <i className="bi bi-zoom-in"></i>
                           Perbesar Lokasi
                         </button>
-
-                        {position && !showRoute && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Mencegah event bubbling
-                              if (position) {
-                                // Hapus rute yang ada jika ada
-                                if (routingControl) {
-                                  mapRef.current.removeControl(routingControl);
-                                }
-
-                                // Buat rute menggunakan Leaflet Routing Machine
-                                const route = L.Routing.control({
-                                  waypoints: [
-                                    L.latLng(position[0], position[1]),
-                                    L.latLng(parseFloat(searchLocation.lat), parseFloat(searchLocation.lon))
-                                  ],
-                                  routeWhileDragging: false,
-                                  show: false,
-                                  addWaypoints: false,
-                                  draggableWaypoints: false,
-                                  fitSelectedRoutes: false,
-                                  showAlternatives: false,
-                                  lineOptions: {
-                                    styles: [
-                                      { color: '#1e88e5', weight: 4, opacity: 0.8 }
-                                    ],
-                                    extendToWaypoints: true,
-                                    missingRouteTolerance: 0
-                                  },
-                                  createMarker: function() { return null; }
-                                }).addTo(mapRef.current);
-
-                                // Simpan referensi ke kontrol rute
-                                setRoutingControl(route);
-                                setShowRoute(true);
-                              }
-                            }}
-                            style={{
-                              backgroundColor: '#1e88e5',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '14px',
-                              fontWeight: 'bold',
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            <i className="bi bi-signpost-split"></i>
-                            Tampilkan Rute
-                          </button>
-                        )}
-
-                        {showRoute && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Mencegah event bubbling
-                              clearRoute();
-                            }}
-                            style={{
-                              backgroundColor: '#E62F2A',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '14px',
-                              fontWeight: 'bold',
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            <i className="bi bi-x-circle"></i>
-                            Hapus Rute
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>

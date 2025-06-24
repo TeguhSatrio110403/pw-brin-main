@@ -133,10 +133,10 @@ const NavBar = () => {
                     <Link to="/dashboard" className="nav-link item-list">Dashboard</Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Link to="/analisis" className="nav-link item-list">Analisis</Link>
+                    <Link to="/feeds" className="nav-link item-list">Feeds</Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Link to="/feeds" className="nav-link item-list">Feeds</Link>
+                    <Link to="/analisis" className="nav-link item-list">Analisis</Link>
                   </Nav.Item>
                   <Nav.Item>
                     <Link to="/about" className="nav-link item-list">Tentang</Link>
@@ -225,13 +225,13 @@ const NavBar = () => {
                 </div>
                 
                 <Nav.Item>
-                  <Link to="/dashboard" className="nav-link item-list py-3">Home</Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Link to="/analisis" className="nav-link item-list py-3">Analisis</Link>
+                  <Link to="/dashboard" className="nav-link item-list py-3">Dashboard</Link>
                 </Nav.Item>
                 <Nav.Item>
                   <Link to="/feeds" className="nav-link item-list py-3">Feeds</Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Link to="/analisis" className="nav-link item-list py-3">Analisis</Link>
                 </Nav.Item>
                 <Nav.Item>
                   <Link to="/about" className="nav-link item-list py-3">Tentang</Link>
