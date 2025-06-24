@@ -1,14 +1,15 @@
 import React, { createContext, useEffect, useState } from 'react';
 import { Card, Modal } from 'react-bootstrap';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import { port } from '../../constant/https.jsx';
 
 const HookMqtt = () => {
   const [client, setClient] = useState(null);
   const [payload, setPayload] = useState({});
   
-  const [accelX, setAccelX] = useState(0);
-  const [accelY, setAccelY] = useState(0);
-  const [accelZ, setAccelZ] = useState(0);
+  const [nilai_accel_x, setNilaiAccelX] = useState(0);
+  const [nilai_accel_y, setNilaiAccelY] = useState(0);
+  const [nilai_accel_z, setNilaiAccelZ] = useState(0);
   const [ph, setPh] = useState(0);
   const [temp, setTemp] = useState(0);
   const [turbidity, setTurbidity] = useState(0);
@@ -25,9 +26,9 @@ const HookMqtt = () => {
         const payload = JSON.parse(message.toString());
         setPayload(payload);
       
-        setAccelX(payload.accelX || 0);
-        setAccelY(payload.accelY || 0);
-        setAccelZ(payload.accelZ || 0);
+        setNilaiAccelX(payload.nilai_accel_x || 0);
+        setNilaiAccelY(payload.nilai_accel_y || 0);
+        setNilaiAccelZ(payload.nilai_accel_z || 0);
         setPh(payload.ph || 0);
         setTemp(payload.temp || 0);
         setTurbidity(payload.turbidity || 0);
@@ -42,7 +43,7 @@ const HookMqtt = () => {
     const fetchData = async () => {
       try {
         // const response = await fetch('http://localhost:3000/getCurrentData');
-        const response = await fetch('https://server-water-sensors.onrender.com/getCurrentData'); //ubah URL endpoint untuk mendapatkan data sensor
+        const response = await fetch(`${port}getCurrentData`); //ubah URL endpoint untuk mendapatkan data sensor
         
         // Periksa status respons
         if (!response.ok) {
@@ -58,20 +59,35 @@ const HookMqtt = () => {
         const result = await response.json();
         
         if (result.success && result.data) {
-          const { message } = result.data;
-          
-          setAccelX(message.accel_x || 0);
-          setAccelY(message.accel_y || 0);
-          setAccelZ(message.accel_z || 0);
-          setPh(parseFloat(message.ph) || 0);
-          setTemp(message.temperature || 0);
-          setTurbidity(message.turbidity || 0);
-          setSpeed(message.speed || 0);
+          const sensorData = result.data;
+          setNilaiAccelX(sensorData.nilai_accel_x || 0);
+          setNilaiAccelY(sensorData.nilai_accel_y || 0);
+          setNilaiAccelZ(sensorData.nilai_accel_z || 0);
+          setPh(parseFloat(sensorData.ph) || 0);
+          setTemp(sensorData.temperature || 0);
+          setTurbidity(sensorData.turbidity || 0);
+          setSpeed(sensorData.speed || 0);
+          setLatitude(sensorData.latitude || 0);
+          setLongitude(sensorData.longitude || 0);
         } else {
           console.warn("Data tidak valid atau tidak lengkap:", result);
+          setNilaiAccelX(0);
+          setNilaiAccelY(0);
+          setNilaiAccelZ(0);
+          setPh(0);
+          setTemp(0);
+          setTurbidity(0);
+          setSpeed(0);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+        setNilaiAccelX(0);
+        setNilaiAccelY(0);
+        setNilaiAccelZ(0);
+        setPh(0);
+        setTemp(0);
+        setTurbidity(0);
+        setSpeed(0);
       }
     };
 
@@ -112,8 +128,8 @@ const HookMqtt = () => {
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelX}
-                      text={`${accelX} m/s²`}
+                      value={nilai_accel_x}
+                      text={`${nilai_accel_x} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
@@ -134,8 +150,8 @@ const HookMqtt = () => {
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelY}
-                      text={`${accelY} m/s²`}
+                      value={nilai_accel_y}
+                      text={`${nilai_accel_y} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
@@ -158,8 +174,8 @@ const HookMqtt = () => {
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelZ}
-                      text={`${accelZ} m/s²`}
+                      value={nilai_accel_z}
+                      text={`${nilai_accel_z} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
