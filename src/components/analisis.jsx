@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Button, Container, Pagination } from "react-bootstrap";
 import FeedModal from "../modalAnalisis/modaldata.jsx"; // Import modal
+import { port } from "../constant/https.jsx"; // Import port dari constant
 
 // Definisikan port (URL API)
-const port = "https://server-water-sensors.onrender.com"; // URL server Anda
+// const port = "https://server-water-sensors.onrender.com"; // URL server Anda
 
 const Analisis = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -17,7 +18,7 @@ const Analisis = () => {
 
   // Fetch data dari API
   useEffect(() => {
-    fetch(`${port}/data_lokasi`) // Gunakan port yang sudah didefinisikan
+    fetch(`${port}data_lokasi`) // Gunakan port yang sudah didefinisikan
       .then((response) => response.json())
       .then((data) => {
         const formattedData = data.map((item) => ({

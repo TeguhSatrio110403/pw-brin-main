@@ -8,6 +8,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { port } from '../constant/https.jsx';
 
 // Fix untuk marker icon Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -65,9 +66,7 @@ const FeedModal = ({ show, onHide, feed }) => {
         setError(null);
         try {
           const response = await fetch(
-            `https://server-water-sensors.onrender.com/data_combined/paginated/${
-              feed.id
-            }?page=${currentPage + 1}&limit=${itemsPerPage}`
+            `${port}data_combined/paginated/${feed.id}?page=${currentPage + 1}&limit=${itemsPerPage}`
           );
 
           if (!response.ok) {

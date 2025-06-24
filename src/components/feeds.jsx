@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { port } from '../constant/https.jsx';
 
 ChartJS.register(
   CategoryScale,
@@ -64,8 +65,6 @@ const Feeds = () => {
 
   const dataPerPage = 10;
 
-  const API_BASE_URL = "https://server-water-sensors.onrender.com";
-
   // Konstanta untuk rentang waktu
   const TIME_RANGES = [
     { value: "ALL", label: "Semua Waktu" },
@@ -86,7 +85,7 @@ const Feeds = () => {
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/data_lokasi`);
+        const response = await fetch(`${port}data_lokasi`);
         if (!response.ok) throw new Error("Network response was not ok");
         const result = await response.json();
         if (result && Array.isArray(result)) {
@@ -173,7 +172,7 @@ const Feeds = () => {
         };
 
         const rangeFormat = getRangeFormat(selectedTimeRange);
-        const baseUrl = `${API_BASE_URL}/data_combined`;
+        const baseUrl = `${port}data_combined`;
         let apiUrl = '';
         
         if (selectedLocation && selectedLocation !== "semua") {
@@ -626,7 +625,7 @@ const Feeds = () => {
   const handleDownload = async () => {
     try {
       setIsLoading(true);
-      const baseUrl = `${API_BASE_URL}/data_combined`;
+      const baseUrl = `${port}data_combined`;
       let apiUrl = '';
       
       if (selectedLocation && selectedLocation !== "semua") {

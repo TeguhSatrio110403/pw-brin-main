@@ -7,6 +7,7 @@ import {
   Popup,
   useMap,
   useMapEvents,
+  Circle
 } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import 'leaflet/dist/leaflet.css';
@@ -18,6 +19,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import 'leaflet-routing-machine';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import { Alert } from 'antd';
+import { port } from '../constant/https.jsx'; // Import port dari constant
 
 // Custom icons from the HTML code
 const markerLocation = new L.Icon({
@@ -101,7 +103,6 @@ const Dashboard = () => {
   
   const socketRef = useRef(null);
   const mapRef = useRef(null);
-  const API_URL = 'https://server-water-sensors.onrender.com';
 
   // Cek status admin dan guest dari localStorage saat komponen dimount
   useEffect(() => {
@@ -143,7 +144,7 @@ const Dashboard = () => {
   // Fungsi untuk mengecek status server
   const checkServerStatus = async () => {
     try {
-      const response = await fetch(API_URL);
+      const response = await fetch(port);
       if (response.ok) {
         setServerStatus('connected');
       } else {
@@ -171,7 +172,7 @@ const Dashboard = () => {
   const fetchWaterLocations = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/data_lokasi`);
+      const response = await fetch(`${port}data_lokasi`);
       const data = await response.json();
       
       const formattedData = data.map(item => ({
@@ -193,7 +194,7 @@ const Dashboard = () => {
   // Fetch sensor data from backend
   const fetchSensorData = async () => {
     try {
-      const response = await fetch(`${API_URL}/data_combined`);
+      const response = await fetch(`${port}data_combined`);
       const data = await response.json();
       
       if (data.success) {
@@ -208,7 +209,7 @@ const Dashboard = () => {
   const fetchHistoricalData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/data_lokasi`);
+      const response = await fetch(`${port}data_lokasi`);
       const data = await response.json();
       
       if (data) {
@@ -258,7 +259,7 @@ const Dashboard = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    socketRef.current = io(API_URL);
+    socketRef.current = io(port);
 
     socketRef.current.on('connect', () => {
       console.log('Connected to WebSocket server');
@@ -875,7 +876,7 @@ const Dashboard = () => {
 
   const getAddressFromCoordinates = async (lat, lng) => {
     try {
-      const response = await fetch(`https://server-water-sensors.onrender.com/api/geocode?lat=${lat}&lon=${lng}`);
+      const response = await fetch(`${port}api/geocode?lat=${lat}&lon=${lng}`);
       
       if (!response.ok) {
         throw new Error('Gagal mendapatkan alamat');
@@ -1056,6 +1057,35 @@ const Dashboard = () => {
   const focusToIot = () => {
     if (iotPosition && mapRef.current) {
       mapRef.current.setView(iotPosition, 16);
+    } else {
+      // Tampilkan alert jika tidak ada IoT yang aktif
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #f39c12;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: fadeInOut 5s ease-in-out;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+      `;
+      notification.innerHTML = `
+        <i class="bi bi-exclamation-triangle-fill" style="font-size: 18px;"></i>
+        Tidak ada perangkat IoT yang sedang aktif saat ini
+      `;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 5000);
     }
   };
 
@@ -1400,26 +1430,21 @@ const Dashboard = () => {
               </button>
 
               {/* Tombol fokus ke IoT */}
-              {iotPosition && (
-                <button
-                  onClick={focusToIot}
-                  className="btn-mulaibaru"
-                  style={{
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <i className="bi bi-broadcast"></i>
-                  Fokus ke IoT
-                </button>
-              )}
+              <button
+                onClick={focusToIot}
+                className="btn-mulaibaru"
+                style={{ 
+                  alignItems: 'center',
+                  gap: '15px',
+                }}
+                title="Fokus ke perangkat IoT aktif"
+              >
+                <i 
+                className="bi bi-rocket-takeoff"
+                style={{
+                  fontSize: '20px',
+                }}></i>
+              </button>
             </div>
           </div>
 
@@ -1448,137 +1473,150 @@ const Dashboard = () => {
             
             {/* Current position marker */}
             {position && (
-              <Marker position={position} icon={markerLocation}>
-                <Popup>
-                  <div style={{ 
-                    fontFamily: 'Arial, sans-serif',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    width: '300px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    {/* Header */}
+              <>
+                <Marker position={position} icon={markerLocation}>
+                  <Popup>
                     <div style={{ 
-                      padding: '12px 15px',
-                      background: '#3498db',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      borderBottom: '1px solid #e2e8f0'
+                      fontFamily: 'Arial, sans-serif',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      width: '300px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                      border: '1px solid #e2e8f0'
                     }}>
-                      <div>
-                        <i className="bi bi-person-pin" style={{ marginRight: '8px' }}></i>
-                        Posisi Saat Ini
-                    </div>
+                      {/* Header */}
                       <div style={{ 
-                        fontSize: '12px', 
-                        backgroundColor: 'rgba(255,255,255,0.3)',
-                        padding: '2px 6px',
-                        borderRadius: '10px'
+                        padding: '12px 15px',
+                        background: '#3498db',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderBottom: '1px solid #e2e8f0'
                       }}>
-                        Anda
+                        <div>
+                          <i className="bi bi-person-pin" style={{ marginRight: '8px' }}></i>
+                          Posisi Saat Ini
                       </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div style={{ padding: '15px' }}>
-                      {/* Alamat */}
-                      <div style={{ marginBottom: '15px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                          <i className="bi bi-pin-map-fill" style={{ color: '#e74c3c', marginRight: '8px', fontSize: '18px' }}></i>
-                          <span style={{ fontWeight: 'bold', color: '#333' }}>Alamat Lokasi</span>
-                        </div>
                         <div style={{ 
-                          backgroundColor: '#f8f9fa',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #e2e8f0',
-                          fontSize: '13px',
-                          color: '#333',
-                          lineHeight: '1.5'
+                          fontSize: '12px', 
+                          backgroundColor: 'rgba(255,255,255,0.3)',
+                          padding: '2px 6px',
+                          borderRadius: '10px'
                         }}>
-                          {locationAddress || 'Memuat alamat...'}
+                          Anda
                         </div>
                       </div>
                       
-                      {/* Koordinat */}
-                      <div style={{ marginBottom: '15px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                          <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
-                          <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
+                      {/* Content */}
+                      <div style={{ padding: '15px' }}>
+                        {/* Alamat */}
+                        <div style={{ marginBottom: '15px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                            <i className="bi bi-pin-map-fill" style={{ color: '#e74c3c', marginRight: '8px', fontSize: '18px' }}></i>
+                            <span style={{ fontWeight: 'bold', color: '#333' }}>Alamat Lokasi</span>
+                          </div>
+                          <div style={{ 
+                            backgroundColor: '#f8f9fa',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '13px',
+                            color: '#333',
+                            lineHeight: '1.5'
+                          }}>
+                            {locationAddress || 'Memuat alamat...'}
+                          </div>
                         </div>
                         
-                        {/* Tampilan yang lebih responsif untuk koordinat */}
-                        <div style={{ 
-                          backgroundColor: '#f8f9fa',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #e2e8f0'
-                        }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            marginBottom: '8px'
-                          }}>
-                            <div style={{ 
-                              minWidth: '70px', 
-                              fontSize: '13px', 
-                              color: '#666',
-                              fontWeight: 'bold'
-                            }}>
-                              Latitude:
-                            </div>
-                            <div style={{ 
-                              flex: '1',
-                              fontSize: '13px',
-                              fontWeight: 'bold',
-                              color: '#2980b9',
-                              padding: '4px 8px',
-                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                              borderRadius: '4px',
-                              wordBreak: 'break-all',
-                              textAlign: 'right'
-                            }}>
-                              {position[0].toFixed(6)}
-                            </div>
+                        {/* Koordinat */}
+                        <div style={{ marginBottom: '15px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                            <i className="bi bi-geo" style={{ color: '#3498db', marginRight: '8px', fontSize: '18px' }}></i>
+                            <span style={{ fontWeight: 'bold', color: '#333' }}>Koordinat</span>
                           </div>
                           
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center'
+                          {/* Tampilan yang lebih responsif untuk koordinat */}
+                          <div style={{ 
+                            backgroundColor: '#f8f9fa',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e2e8f0'
                           }}>
-                            <div style={{ 
-                              minWidth: '70px', 
-                              fontSize: '13px', 
-                              color: '#666',
-                              fontWeight: 'bold'
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              marginBottom: '8px'
                             }}>
-                              Longitude:
+                              <div style={{ 
+                                minWidth: '70px', 
+                                fontSize: '13px', 
+                                color: '#666',
+                                fontWeight: 'bold'
+                              }}>
+                                Latitude:
+                              </div>
+                              <div style={{ 
+                                flex: '1',
+                                fontSize: '13px',
+                                fontWeight: 'bold',
+                                color: '#2980b9',
+                                padding: '4px 8px',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                borderRadius: '4px',
+                                wordBreak: 'break-all',
+                                textAlign: 'right'
+                              }}>
+                                {position[0].toFixed(6)}
+                              </div>
                             </div>
-                            <div style={{ 
-                              flex: '1',
-                              fontSize: '13px',
-                              fontWeight: 'bold',
-                              color: '#2980b9',
-                              padding: '4px 8px',
-                              backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                              borderRadius: '4px',
-                              wordBreak: 'break-all',
-                              textAlign: 'right'
+                            
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center'
                             }}>
-                              {position[1].toFixed(6)}
+                              <div style={{ 
+                                minWidth: '70px', 
+                                fontSize: '13px', 
+                                color: '#666',
+                                fontWeight: 'bold'
+                              }}>
+                                Longitude:
+                              </div>
+                              <div style={{ 
+                                flex: '1',
+                                fontSize: '13px',
+                                fontWeight: 'bold',
+                                color: '#2980b9',
+                                padding: '4px 8px',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                borderRadius: '4px',
+                                wordBreak: 'break-all',
+                                textAlign: 'right'
+                              }}>
+                                {position[1].toFixed(6)}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Popup>
-              </Marker>
+                  </Popup>
+                </Marker>
+                {/* Lingkaran biru untuk marker pengguna */}
+                <Circle
+                  center={position}
+                  radius={50}
+                  pathOptions={{
+                    color: '#3498db',
+                    fillColor: '#3498db',
+                    fillOpacity: 0.2,
+                    weight: 2
+                  }}
+                />
+              </>
             )}
             
             {/* IoT Device Marker */}

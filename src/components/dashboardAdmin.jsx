@@ -35,6 +35,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Marker, Popup } from 'react-leaflet';
 import { useRef } from 'react';
+import { port } from '../constant/https.jsx';
 
 const { Header, Sider, Content } = Layout;
 const { Search } = AntInput;
@@ -68,8 +69,6 @@ const DashboardAdmin = () => {
   const [selectedAnomaliLocation, setSelectedAnomaliLocation] = useState('');
   const [anomaliLoading, setAnomaliLoading] = useState(false);
   const navigate = useNavigate();
-
-  const API_URL = 'https://server-water-sensors.onrender.com';
 
   const menuItems = [
     {
@@ -117,7 +116,7 @@ const DashboardAdmin = () => {
 
       // Selalu ambil data lokasi terlebih dahulu
       console.log('Fetching locations data...');
-      const locationsResponse = await axios.get(`${API_URL}/data_lokasi`);
+      const locationsResponse = await axios.get(`${port}data_lokasi`);
       console.log('Raw locations response:', locationsResponse);
       
       if (locationsResponse.data) {
@@ -207,7 +206,7 @@ const DashboardAdmin = () => {
           tanggal: values.date
         };
         
-        await axios.put(`${API_URL}/data_lokasi/${editingId}`, updateData);
+        await axios.put(`${port}data_lokasi/${editingId}`, updateData);
         message.success('Data berhasil diperbarui');
       } else {
         // Format data untuk tambah lokasi baru
@@ -219,7 +218,7 @@ const DashboardAdmin = () => {
           tanggal: new Date().toISOString()
         };
         
-        await axios.post(`${API_URL}/data_lokasi`, newData);
+        await axios.post(`${port}data_lokasi`, newData);
         message.success('Data berhasil ditambahkan');
       }
       handleCancel();
@@ -232,7 +231,7 @@ const DashboardAdmin = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_URL}/${activeMenu}/${id}`);
+      await axios.delete(`${port}${activeMenu}/${id}`);
       message.success('Data berhasil dihapus');
       fetchData();
     } catch (error) {
@@ -299,7 +298,7 @@ const DashboardAdmin = () => {
   const fetchUsers = async () => {
     setUserLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/users`);
+      const res = await axios.get(`${port}users`);
       if (res.data && res.data.users) {
         setUsers(res.data.users);
         setFilteredUsers(res.data.users);
@@ -338,10 +337,10 @@ const DashboardAdmin = () => {
     setUserLoading(true);
     try {
       if (editingUserId) {
-        await axios.put(`${API_URL}/users/${editingUserId}`, values);
+        await axios.put(`${port}users/${editingUserId}`, values);
         message.success('User berhasil diperbarui');
       } else {
-        await axios.post(`${API_URL}/users`, values);
+        await axios.post(`${port}users`, values);
         message.success('User berhasil ditambahkan');
       }
       handleUserCancel();
@@ -356,7 +355,7 @@ const DashboardAdmin = () => {
   const handleUserDelete = async (id) => {
     setUserLoading(true);
     try {
-      await axios.delete(`${API_URL}/users/${id}`);
+      await axios.delete(`${port}users/${id}`);
       message.success('User berhasil dihapus');
       fetchUsers();
     } catch (err) {
@@ -387,7 +386,7 @@ const DashboardAdmin = () => {
   const fetchAnomaliData = async () => {
     setAnomaliLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/anomali-sensor`); // Ganti endpoint jika perlu
+      const res = await axios.get(`${port}anomali-sensor`); // Ganti endpoint jika perlu
       if (res.data) {
         setAnomaliData(res.data);
         // Ambil lokasi unik

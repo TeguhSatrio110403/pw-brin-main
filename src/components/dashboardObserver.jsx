@@ -35,6 +35,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Marker, Popup } from 'react-leaflet';
 import { useRef } from 'react';
+import { port } from '../constant/https.jsx';
 
 const { Header, Sider, Content } = Layout;
 const { Search } = AntInput;
@@ -56,8 +57,6 @@ const DashboardObserver = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchText, setSearchText] = useState('');
   const navigate = useNavigate();
-
-  const API_URL = 'https://server-water-sensors.onrender.com';
 
   const menuItems = [
     {
@@ -95,7 +94,7 @@ const DashboardObserver = () => {
 
       // Selalu ambil data lokasi terlebih dahulu
       console.log('Fetching locations data...');
-      const locationsResponse = await axios.get(`${API_URL}/data_lokasi`);
+      const locationsResponse = await axios.get(`${port}data_lokasi`);
       console.log('Raw locations response:', locationsResponse);
       
       if (locationsResponse.data) {
@@ -185,7 +184,7 @@ const DashboardObserver = () => {
           tanggal: values.date
         };
         
-        await axios.put(`${API_URL}/data_lokasi/${editingId}`, updateData);
+        await axios.put(`${port}data_lokasi/${editingId}`, updateData);
         message.success('Data berhasil diperbarui');
       } else {
         // Format data untuk tambah lokasi baru
@@ -197,7 +196,7 @@ const DashboardObserver = () => {
           tanggal: new Date().toISOString()
         };
         
-        await axios.post(`${API_URL}/data_lokasi`, newData);
+        await axios.post(`${port}data_lokasi`, newData);
         message.success('Data berhasil ditambahkan');
       }
       handleCancel();
@@ -210,7 +209,7 @@ const DashboardObserver = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_URL}/${activeMenu}/${id}`);
+      await axios.delete(`${port}${activeMenu}/${id}`);
       message.success('Data berhasil dihapus');
       fetchData();
     } catch (error) {

@@ -3,8 +3,7 @@ import axios from 'axios';
 import { EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import { Alert, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
-
-const API_URL = 'https://server-water-sensors.onrender.com/';
+import { port } from '../constant/https.jsx'; // Import port dari constant
 
 const login = () => {
   const [username, setUsername] = useState('');
@@ -37,7 +36,7 @@ const login = () => {
   // Validasi koneksi server
   const checkServerConnection = async () => {
     try {
-      const response = await axios.get(API_URL, {
+      const response = await axios.get(port, {
         timeout: 5000,
         headers: { 'Accept': 'text/plain' }
       });
@@ -89,7 +88,7 @@ const login = () => {
         return;
       }
 
-      const response = await axios.post(`${API_URL}auth/login`, {
+      const response = await axios.post(`${port}auth/login`, {
         identifier: username,
         password
       });
@@ -126,7 +125,7 @@ const login = () => {
         return;
       }
 
-      const response = await axios.post(`${API_URL}auth/guest`);
+      const response = await axios.post(`${port}auth/guest`);
 
       if (response.data.token) {
         localStorage.setItem('isLoggedIn', 'true');
@@ -162,7 +161,7 @@ const login = () => {
         return;
       }
 
-      const response = await axios.post(`${API_URL}auth/login`, {
+      const response = await axios.post(`${port}auth/login`, {
         identifier: username,
         password
       });
