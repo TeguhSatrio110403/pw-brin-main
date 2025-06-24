@@ -528,32 +528,6 @@ const Dashboard = () => {
                 <i className="bi bi-zoom-in"></i>
                 Perbesar Lokasi
               </button>
-
-              {position && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Mencegah event bubbling
-                    clearRoute();
-                  }}
-                  style={{
-                    backgroundColor: '#E62F2A',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <i className="bi bi-x-circle"></i>
-                  Hapus Rute
-                </button>
-              )}
             </div>
           </div>
         </Popup>
