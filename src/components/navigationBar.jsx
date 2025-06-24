@@ -162,7 +162,7 @@ const NavBar = () => {
                           to="/dashboardAdmin" 
                           className="text-danger"
                         >
-                          <i className="bi bi-gear-fill me-2"></i>Admin Dashboard
+                          <i className="bi bi-gear-fill me-2"></i>Beranda
                         </Dropdown.Item>
                       )}
 
@@ -173,7 +173,7 @@ const NavBar = () => {
                           to="/dashboardObserver" 
                           className="text-primary"
                         >
-                          <i className="bi bi-eye-fill me-2"></i>Observer Dashboard
+                          <i className="bi bi-eye-fill me-2"></i>Beranda
                         </Dropdown.Item>
                       )}
                       
@@ -225,7 +225,7 @@ const NavBar = () => {
                 </div>
                 
                 <Nav.Item>
-                  <Link to="/dashboard" className="nav-link item-list py-3">Dashboard</Link>
+                  <Link to="/dashboard" className="nav-link item-list py-3">Home</Link>
                 </Nav.Item>
                 <Nav.Item>
                   <Link to="/analisis" className="nav-link item-list py-3">Analisis</Link>
