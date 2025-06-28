@@ -16,8 +16,6 @@ import DataOdometer from '../service/hook/index';
 import LokasiPenelitian from "../service/hook/formdata";
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Link, useNavigate } from 'react-router-dom';
-import 'leaflet-routing-machine';
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import { Alert } from 'antd';
 import { port } from '../constant/https.jsx'; // Import port dari constant
 
@@ -65,9 +63,6 @@ const MapEventHandler = ({ onMapClick }) => {
   return null;
 };
 
-// Tambahkan API key OpenRouteService
-const OPENROUTE_API_KEY = '5b3ce3597851110001cf6248e4c8c0c0c0c84b4c0c0c0c0c0c0c0c0c0c0c0c0c';
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [position, setPosition] = useState(null);
@@ -90,7 +85,9 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
   const [isPageLoading, setIsPageLoading] = useState(false);
-  const [iotPosition, setIotPosition] = useState(null);
+  const [latitude, setLatitude] = useState(0);
+  const [longitude, setLongitude] = useState(0);
+  const [iotPosition, setIotPosition] = useState();
   const [latestSensorData, setLatestSensorData] = useState(null);
   const [serverStatus, setServerStatus] = useState('checking');
   const [showStatus, setShowStatus] = useState(true);
@@ -264,15 +261,18 @@ const Dashboard = () => {
       console.log('Connected to WebSocket server');
     });
 
-    socketRef.current.on('sensorData', (data) => {
-      setSensorData(prev => [...prev, data]);
-      setLatestSensorData(data); // Tambahkan ini agar odometer dan marker IoT sinkron
-      
-      // Update posisi IoT jika ada data lokasi
-      if (data.lat && data.lon) {
-        const cleanLat = data.lat.split('.').slice(0, 2).join('.');
-        const cleanLon = data.lon.split('.').slice(0, 2).join('.');
-        setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
+    socketRef.current.on('mqttData', (data) => {
+      console.log('📩 Data MQTT diterima di dashboard:', data);
+      if (data?.message) {
+        setSensorData(prev => [...prev, data.message]);
+        setLatestSensorData(data.message); // Tambahkan ini agar odometer dan marker IoT sinkron
+        
+        // Update posisi IoT jika ada data lokasi
+        if (data.message.latitude && data.message.longitude) {
+          const cleanLat = data.message.latitude;
+          const cleanLon = data.message.longitude;
+          setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
+        }
       }
     });
 
@@ -308,10 +308,25 @@ const Dashboard = () => {
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
         {
           headers: {
-              'User-Agent': 'WaterSensorApp/1.0 (your-contact-email@example.com)'
+              'User-Agent': 'WaterSensorApp/1.0 (water-sensor@example.com)',
+              'Accept': 'application/json'
           }
       }
       );
+      
+      // Check if response is ok
+      if (!response.ok) {
+        console.warn(`Nominatim API error: ${response.status} ${response.statusText}`);
+        return "Alamat tidak ditemukan";
+      }
+      
+      // Check content type to ensure we get JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Nominatim API returned non-JSON response');
+        return "Alamat tidak ditemukan";
+      }
+      
       const data = await response.json();
       return data.display_name || "Alamat tidak ditemukan";
     } catch (error) {
@@ -539,256 +554,277 @@ const Dashboard = () => {
 
   // Sensor data markers
   const sensorMarkers = useMemo(() => {
-    return sensorData.map((data, idx) => {
-      const cleanLat = data.lat.split('.').slice(0, 2).join('.');
-      const cleanLon = data.lon.split('.').slice(0, 2).join('.');
-      
-      // Menentukan status pH
-      const getPHStatus = (value) => {
-        if (value < 6) return { color: '#e74c3c', text: 'Asam' };
-        if (value > 8) return { color: '#e67e22', text: 'Basa' };
-        return { color: '#2ecc71', text: 'Normal' };
-      };
-      
-      // Menentukan status suhu
-      const getTempStatus = (value) => {
-        if (value > 30) return { color: '#e74c3c', text: 'Tinggi' };
-        if (value < 20) return { color: '#3498db', text: 'Rendah' };
-        return { color: '#2ecc71', text: 'Normal' };
-      };
-      
-      // Menentukan status kekeruhan
-      const getTurbidityStatus = (value) => {
-        if (value > 50) return { color: '#e74c3c', text: 'Keruh' };
-        if (value > 25) return { color: '#e67e22', text: 'Sedang' };
-        return { color: '#2ecc71', text: 'Jernih' };
-      };
-      
-      const phStatus = getPHStatus(data.nilai_ph);
-      const tempStatus = getTempStatus(data.nilai_temperature);
-      const turbidityStatus = getTurbidityStatus(data.nilai_turbidity);
-      
-      return (
-        <Marker 
-          key={`sensor-${idx}`} 
-          position={[parseFloat(cleanLat), parseFloat(cleanLon)]}
-          icon={markerWaterWays}
-        >
-          <Popup>
-            <div style={{ 
-              fontFamily: 'Arial, sans-serif',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              width: '300px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              border: '1px solid #e2e8f0'
-            }}>
-              {/* Header */}
+    return sensorData
+      .map((data, idx) => {
+        // Validasi data koordinat dan gunakan format yang konsisten
+        const lat = data.latitude || data.lat;
+        const lon = data.longitude || data.lon;
+        
+        // Skip jika tidak ada koordinat valid
+        if (!lat || !lon) {
+          console.warn('Data sensor tidak memiliki koordinat valid:', data);
+          return null;
+        }
+        
+        const cleanLat = lat.toString().split('.').slice(0, 2).join('.');
+        const cleanLon = lon.toString().split('.').slice(0, 2).join('.');
+        
+        // Menentukan status pH
+        const getPHStatus = (value) => {
+          if (value < 6) return { color: '#e74c3c', text: 'Asam' };
+          if (value > 8) return { color: '#e67e22', text: 'Basa' };
+          return { color: '#2ecc71', text: 'Normal' };
+        };
+        
+        // Menentukan status suhu
+        const getTempStatus = (value) => {
+          if (value > 30) return { color: '#e74c3c', text: 'Tinggi' };
+          if (value < 20) return { color: '#3498db', text: 'Rendah' };
+          return { color: '#2ecc71', text: 'Normal' };
+        };
+        
+        // Menentukan status kekeruhan
+        const getTurbidityStatus = (value) => {
+          if (value > 50) return { color: '#e74c3c', text: 'Keruh' };
+          if (value > 25) return { color: '#e67e22', text: 'Sedang' };
+          return { color: '#2ecc71', text: 'Jernih' };
+        };
+        
+        // Gunakan format field yang konsisten
+        const phValue = data.nilai_ph || data.ph || 0;
+        const tempValue = data.nilai_temperature || data.temperature || 0;
+        const turbidityValue = data.nilai_turbidity || data.turbidity || 0;
+        const speedValue = data.nilai_speed || data.speed || 0;
+        const accelX = data.nilai_accel_x || data.accel_x || 0;
+        const accelY = data.nilai_accel_y || data.accel_y || 0;
+        const accelZ = data.nilai_accel_z || data.accel_z || 0;
+        
+        const phStatus = getPHStatus(phValue);
+        const tempStatus = getTempStatus(tempValue);
+        const turbidityStatus = getTurbidityStatus(turbidityValue);
+        
+        return (
+          <Marker 
+            key={`sensor-${idx}`} 
+            position={[parseFloat(cleanLat), parseFloat(cleanLon)]}
+            icon={markerWaterWays}
+          >
+            <Popup>
               <div style={{ 
-                padding: '12px 15px',
-                background: '#3498db',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid #e2e8f0'
+                fontFamily: 'Arial, sans-serif',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                width: '300px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                border: '1px solid #e2e8f0'
               }}>
-                <span><i className="bi bi-water" style={{ marginRight: '8px' }}></i>Data Sensor</span>
-                <span style={{ fontSize: '12px', opacity: '0.9' }}>{new Date(data.tanggal).toLocaleString()}</span>
-              </div>
-              
-              {/* Content */}
-              <div style={{ padding: '15px' }}>
-                {/* pH Value */}
-                <div style={{ marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#333' }}>pH</span>
-                    <span style={{ 
-                      fontSize: '13px', 
-                      backgroundColor: phStatus.color, 
-                      color: 'white', 
-                      padding: '2px 8px', 
-                      borderRadius: '10px' 
-                    }}>
-                      {phStatus.text}
-                  </span>
-                  </div>
-                  <div style={{ 
-                    height: '10px', 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: '5px',
-                    overflow: 'hidden',
-                    marginBottom: '3px'
-                  }}>
-                    <div style={{ 
-                      height: '100%', 
-                      width: `${(data.nilai_ph / 14) * 100}%`,
-                      backgroundColor: phStatus.color, 
-                      borderRadius: '5px'
-                    }}></div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
-                    <span>0</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_ph}</span>
-                    <span>14</span>
-                  </div>
+                {/* Header */}
+                <div style={{ 
+                  padding: '12px 15px',
+                  background: '#3498db',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid #e2e8f0'
+                }}>
+                  <span><i className="bi bi-water" style={{ marginRight: '8px' }}></i>Data Sensor</span>
+                  <span style={{ fontSize: '12px', opacity: '0.9' }}>{new Date(data.tanggal).toLocaleString()}</span>
                 </div>
                 
-                {/* Temperature */}
-                <div style={{ marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#333' }}>Suhu</span>
-                    <span style={{ 
-                      fontSize: '13px', 
-                      backgroundColor: tempStatus.color, 
-                      color: 'white', 
-                      padding: '2px 8px', 
-                      borderRadius: '10px' 
-                    }}>
-                      {tempStatus.text}
-                  </span>
-                  </div>
-                  <div style={{ 
-                    height: '10px', 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: '5px',
-                    overflow: 'hidden',
-                    marginBottom: '3px'
-                  }}>
-                    <div style={{ 
-                      height: '100%', 
-                      width: `${(data.nilai_temperature / 40) * 100}%`,
-                      backgroundColor: tempStatus.color, 
-                      borderRadius: '5px'
-                    }}></div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
-                    <span>0°C</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_temperature}°C</span>
-                    <span>40°C</span>
-                  </div>
-                </div>
-                
-                {/* Turbidity */}
-                <div style={{ marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#333' }}>Kekeruhan</span>
-                    <span style={{ 
-                      fontSize: '13px', 
-                      backgroundColor: turbidityStatus.color, 
-                      color: 'white', 
-                      padding: '2px 8px', 
-                      borderRadius: '10px' 
-                    }}>
-                      {turbidityStatus.text}
+                {/* Content */}
+                <div style={{ padding: '15px' }}>
+                  {/* pH Value */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#333' }}>pH</span>
+                      <span style={{ 
+                        fontSize: '13px', 
+                        backgroundColor: phStatus.color, 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '10px' 
+                      }}>
+                        {phStatus.text}
                     </span>
-                  </div>
-                  <div style={{ 
-                    height: '10px', 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: '5px',
-                    overflow: 'hidden',
-                    marginBottom: '3px'
-                  }}>
+                    </div>
                     <div style={{ 
-                      height: '100%', 
-                      width: `${Math.min((data.nilai_turbidity / 100) * 100, 100)}%`,
-                      backgroundColor: turbidityStatus.color, 
-                      borderRadius: '5px'
-                    }}></div>
+                      height: '10px', 
+                      backgroundColor: '#e0e0e0', 
+                      borderRadius: '5px',
+                      overflow: 'hidden',
+                      marginBottom: '3px'
+                    }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${(phValue / 14) * 100}%`,
+                        backgroundColor: phStatus.color, 
+                        borderRadius: '5px'
+                      }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                      <span>0</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{phValue}</span>
+                      <span>14</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
-                    <span>0 NTU</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_turbidity} NTU</span>
-                    <span>100+ NTU</span>
+                  
+                  {/* Temperature */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#333' }}>Suhu</span>
+                      <span style={{ 
+                        fontSize: '13px', 
+                        backgroundColor: tempStatus.color, 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '10px' 
+                      }}>
+                        {tempStatus.text}
+                    </span>
+                    </div>
+                    <div style={{ 
+                      height: '10px', 
+                      backgroundColor: '#e0e0e0', 
+                      borderRadius: '5px',
+                      overflow: 'hidden',
+                      marginBottom: '3px'
+                    }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${(tempValue / 40) * 100}%`,
+                        backgroundColor: tempStatus.color, 
+                        borderRadius: '5px'
+                      }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                      <span>0°C</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{tempValue}°C</span>
+                      <span>40°C</span>
+                    </div>
+                  </div>
+                  
+                  {/* Turbidity */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#333' }}>Kekeruhan</span>
+                      <span style={{ 
+                        fontSize: '13px', 
+                        backgroundColor: turbidityStatus.color, 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '10px' 
+                      }}>
+                        {turbidityStatus.text}
+                      </span>
+                    </div>
+                    <div style={{ 
+                      height: '10px', 
+                      backgroundColor: '#e0e0e0', 
+                      borderRadius: '5px',
+                      overflow: 'hidden',
+                      marginBottom: '3px'
+                    }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${Math.min((turbidityValue / 100) * 100, 100)}%`,
+                        backgroundColor: turbidityStatus.color, 
+                        borderRadius: '5px'
+                      }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                      <span>0 NTU</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{turbidityValue} NTU</span>
+                      <span>100+ NTU</span>
+                    </div>
+                  </div>
+                  
+                  {/* Speed */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#333' }}>Kecepatan</span>
+                    </div>
+                    <div style={{ 
+                      height: '10px', 
+                      backgroundColor: '#e0e0e0', 
+                      borderRadius: '5px',
+                      overflow: 'hidden',
+                      marginBottom: '3px'
+                    }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${Math.min((speedValue / 5) * 100, 100)}%`,
+                        backgroundColor: '#2980b9', 
+                        borderRadius: '5px'
+                      }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+                      <span>0 m/s</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{speedValue} m/s</span>
+                      <span>5+ m/s</span>
+                    </div>
+                  </div>
+                  
+                  {/* Accelerometer Data in Grid */}
+                  <div style={{ marginTop: '10px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>Data Accelerometer</div>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '1fr 1fr 1fr',
+                      gap: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ 
+                        padding: '8px', 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '5px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#666' }}>X-Axis</div>
+                        <div style={{ fontWeight: 'bold', color: '#e74c3c' }}>{accelX} m/s²</div>
+                      </div>
+                      <div style={{ 
+                        padding: '8px', 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '5px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Y-Axis</div>
+                        <div style={{ fontWeight: 'bold', color: '#2ecc71' }}>{accelY} m/s²</div>
+                      </div>
+                      <div style={{ 
+                        padding: '8px', 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '5px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Z-Axis</div>
+                        <div style={{ fontWeight: 'bold', color: '#3498db' }}>{accelZ} m/s²</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
-                {/* Speed */}
-                <div style={{ marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#333' }}>Kecepatan</span>
-                  </div>
-                  <div style={{ 
-                    height: '10px', 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: '5px',
-                    overflow: 'hidden',
-                    marginBottom: '3px'
-                  }}>
-                    <div style={{ 
-                      height: '100%', 
-                      width: `${Math.min((data.nilai_speed / 5) * 100, 100)}%`,
-                      backgroundColor: '#2980b9', 
-                      borderRadius: '5px'
-                    }}></div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
-                    <span>0 m/s</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>{data.nilai_speed} m/s</span>
-                    <span>5+ m/s</span>
-                  </div>
-                </div>
-                
-                {/* Accelerometer Data in Grid */}
-                <div style={{ marginTop: '10px' }}>
-                  <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>Data Accelerometer</div>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr 1fr',
-                    gap: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ 
-                      padding: '8px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '5px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ fontSize: '12px', color: '#666' }}>X-Axis</div>
-                      <div style={{ fontWeight: 'bold', color: '#e74c3c' }}>{data.nilai_accel_x} m/s²</div>
-                    </div>
-                    <div style={{ 
-                      padding: '8px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '5px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ fontSize: '12px', color: '#666' }}>Y-Axis</div>
-                      <div style={{ fontWeight: 'bold', color: '#2ecc71' }}>{data.nilai_accel_y} m/s²</div>
-                    </div>
-                    <div style={{ 
-                      padding: '8px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '5px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ fontSize: '12px', color: '#666' }}>Z-Axis</div>
-                      <div style={{ fontWeight: 'bold', color: '#3498db' }}>{data.nilai_accel_z} m/s²</div>
-                    </div>
-                  </div>
+                {/* Footer */}
+                <div style={{ 
+                  padding: '10px 15px',
+                  backgroundColor: '#f8f9fa',
+                  borderTop: '1px solid #e2e8f0',
+                  fontSize: '12px',
+                  color: '#666',
+                  textAlign: 'center'
+                }}>
+                  <i className="bi bi-geo-alt-fill" style={{ color: '#e74c3c', marginRight: '5px' }}></i>
+                  {cleanLat}, {cleanLon}
                 </div>
               </div>
-              
-              {/* Footer */}
-              <div style={{ 
-                padding: '10px 15px',
-                backgroundColor: '#f8f9fa',
-                borderTop: '1px solid #e2e8f0',
-                fontSize: '12px',
-                color: '#666',
-                textAlign: 'center'
-              }}>
-                <i className="bi bi-geo-alt-fill" style={{ color: '#e74c3c', marginRight: '5px' }}></i>
-                {cleanLat}, {cleanLon}
-              </div>
-            </div>
-          </Popup>
-        </Marker>
-      );
-    });
+            </Popup>
+          </Marker>
+        );
+      })
+      .filter(marker => marker !== null); // Filter out null markers
   }, [sensorData, sensorAddresses]);
 
   const getAddressFromCoordinates = async (lat, lng) => {
@@ -796,7 +832,15 @@ const Dashboard = () => {
       const response = await fetch(`${port}api/geocode?lat=${lat}&lon=${lng}`);
       
       if (!response.ok) {
-        throw new Error('Gagal mendapatkan alamat');
+        console.warn(`Geocode API error: ${response.status} ${response.statusText}`);
+        return 'Alamat tidak tersedia';
+      }
+      
+      // Check content type to ensure we get JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Geocode API returned non-JSON response');
+        return 'Alamat tidak tersedia';
       }
       
       const data = await response.json();
@@ -969,12 +1013,20 @@ const Dashboard = () => {
     setIsPageLoading(false);
   };
 
-  // Tambahkan fungsi untuk fokus ke marker IoT
+  // Callback untuk menerima data IoT position dari HookMqtt
+  const handleIotPositionChange = (newPosition) => {
+    console.log('🔄 IoT Position updated:', newPosition);
+    setIotPosition(newPosition);
+  };
+
+  // Fokus ke alat IoT: logika mirip mobile
   const focusToIot = () => {
-    if (iotPosition && mapRef.current) {
-      mapRef.current.setView(iotPosition, 16);
-    } else {
-      // Tampilkan alert jika tidak ada IoT yang aktif
+    // Ambil data posisi IoT dari latestSensorData (hasil event mqttData)
+    const lat = latestSensorData?.latitude || latestSensorData?.lat;
+    const lon = latestSensorData?.longitude || latestSensorData?.lon;
+
+    if (!lat || !lon || isNaN(parseFloat(lat)) || isNaN(parseFloat(lon)) || parseFloat(lat) === 0 || parseFloat(lon) === 0) {
+      // Jika tidak ada data posisi, tampilkan alert
       const notification = document.createElement('div');
       notification.style.cssText = `
         position: fixed;
@@ -994,14 +1046,18 @@ const Dashboard = () => {
         font-weight: 500;
       `;
       notification.innerHTML = `
-        <i class="bi bi-exclamation-triangle-fill" style="font-size: 18px;"></i>
-        Tidak ada perangkat IoT yang sedang aktif saat ini
+        <i class=\"bi bi-exclamation-triangle-fill\" style=\"font-size: 18px;\"></i>
+        Perangkat IOT belum aktif. Silakan tunggu data GPS dari perangkat
       `;
       document.body.appendChild(notification);
-      
       setTimeout(() => {
         notification.remove();
       }, 5000);
+      return;
+    }
+    // Jika ada data, fokus ke marker IoT
+    if (mapRef.current) {
+      mapRef.current.setView([parseFloat(lat), parseFloat(lon)], 16);
     }
   };
 
@@ -1015,15 +1071,6 @@ const Dashboard = () => {
     if (previousPosition) {
       setPosition(previousPosition);
       setPreviousPosition(null);
-    }
-  };
-
-  // Fungsi untuk menghapus rute
-  const clearRoute = () => {
-    if (routingControl) {
-      mapRef.current.removeControl(routingControl);
-      setRoutingControl(null);
-      setShowRoute(false);
     }
   };
 
@@ -1048,40 +1095,40 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchLatestData = async () => {
-        try {
-            const response = await fetch(`${port}getCurrentData`);
-            const result = await response.json();
-            if (result.success && result.data) {
-                setLatestSensorData(result.data); 
+  // useEffect(() => {
+  //   const fetchLatestData = async () => {
+  //       try {
+  //           const response = await fetch(`${port}getCurrentData`);
+  //           const result = await response.json();
+  //           if (result.success && result.data) {
+  //               setLatestSensorData(result.data); 
 
-                const { latitude, longitude } = result.data;
-                if (
-                    latitude && longitude &&
-                    !isNaN(parseFloat(latitude)) &&
-                    !isNaN(parseFloat(longitude)) &&
-                    parseFloat(latitude) !== 0 &&
-                    parseFloat(longitude) !== 0
-                ) {
-                    setIotPosition([parseFloat(latitude), parseFloat(longitude)]);
-                } else {
-                    setIotPosition(null);
-                }
-            } else {
-                setLatestSensorData(null);
-                setIotPosition(null);
-            }
-        } catch (e) {
-            setLatestSensorData(null);
-            setIotPosition(null);
-        }
-    };
+  //               const { latitude, longitude } = result.data;
+  //               if (
+  //                   latitude && longitude &&
+  //                   !isNaN(parseFloat(latitude)) &&
+  //                   !isNaN(parseFloat(longitude)) &&
+  //                   parseFloat(latitude) !== 0 &&
+  //                   parseFloat(longitude) !== 0
+  //               ) {
+  //                   setIotPosition([parseFloat(latitude), parseFloat(longitude)]);
+  //               } else {
+  //                   setIotPosition(null);
+  //               }
+  //           } else {
+  //               setLatestSensorData(null);
+  //               setIotPosition(null);
+  //           }
+  //       } catch (e) {
+  //           setLatestSensorData(null);
+  //           setIotPosition(null);
+  //       }
+  //   };
 
-    fetchLatestData();
-    const interval = setInterval(fetchLatestData, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  //   fetchLatestData();
+  //   const interval = setInterval(fetchLatestData, 3000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   return (
     <div>

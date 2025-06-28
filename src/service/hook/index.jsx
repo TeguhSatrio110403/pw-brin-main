@@ -1,10 +1,10 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useRef } from 'react';
 import { Card, Modal } from 'react-bootstrap';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import { port } from '../../constant/https.jsx';
+import { io } from 'socket.io-client';
 
-const HookMqtt = ({ latestData }) => {
-  const [client, setClient] = useState(null);
+const HookMqtt = ({ latestData, onIotPositionChange }) => {
   const [payload, setPayload] = useState({});
   
   const [nilai_accel_x, setNilaiAccelX] = useState(0);
@@ -20,38 +20,123 @@ const HookMqtt = ({ latestData }) => {
   const [showModal, setShowModal] = useState(false);
   const [speed, setSpeed] = useState(0);
 
-  useEffect(() => {
-    if (client) {
-      client.on('message', (topic, message) => {
-        const payload = JSON.parse(message.toString());
-        setPayload(payload);
-      
-        setNilaiAccelX(payload.nilai_accel_x || 0);
-        setNilaiAccelY(payload.nilai_accel_y || 0);
-        setNilaiAccelZ(payload.nilai_accel_z || 0);
-        setPh(payload.ph || 0);
-        setTemp(payload.temp || 0);
-        setTurbidity(payload.turbidity || 0);
-        setLatitude(payload.latitude || 0);
-        setLongitude(payload.longitude || 0);
-        setSpeed(payload.speed || 0);
-      });
-    }
-  }, [client]);
+  const socketRef = useRef(null);
 
+  // Setup Socket.IO connection seperti di mobile
   useEffect(() => {
-    if (latestData) {
-      setNilaiAccelX(latestData.nilai_accel_x || 0);
-      setNilaiAccelY(latestData.nilai_accel_y || 0);
-      setNilaiAccelZ(latestData.nilai_accel_z || 0);
-      setPh(parseFloat(latestData.ph) || 0);
-      setTemp(latestData.temperature || 0);
-      setTurbidity(latestData.turbidity || 0);
-      setSpeed(latestData.speed || 0);
-      setLatitude(latestData.latitude || 0);
-      setLongitude(latestData.longitude || 0);
+    if (!socketRef.current) {
+      socketRef.current = io(port, {
+        transports: ['websocket'],
+        reconnectionAttempts: 5,
+        timeout: 10000,
+      });
+
+      // Listener untuk data MQTT dari server (sama seperti di mobile Home.tsx)
+      socketRef.current.on('mqttData', (data) => {
+        console.log('📩 Data MQTT diterima di odometer:', data);
+        if (data?.message) {
+          setPayload(data.message);
+          
+          // Update state sensor data - gunakan format yang sama dengan mobile
+          setNilaiAccelX(data.message.accel_x.toFixed(2) || 0);
+          setNilaiAccelY(data.message.accel_y.toFixed(2) || 0);
+          setNilaiAccelZ(data.message.accel_z.toFixed(2) || 0);
+          setPh(data.message.ph.toFixed(2) || 7);
+          setTemp(data.message.temperature.toFixed(2) || 0);
+          setTurbidity(data.message.turbidity.toFixed(2) || 0);
+          setSpeed(data.message.speed.toFixed(2) || 0);
+          
+          // Update latitude dan longitude
+          const newLat = data.message.latitude || 0;
+          const newLon = data.message.longitude || 0;
+          setLatitude(newLat);
+          setLongitude(newLon);
+          
+          // Kirim posisi IoT ke parent component jika ada callback
+          if (onIotPositionChange && newLat && newLon && 
+              !isNaN(parseFloat(newLat)) && !isNaN(parseFloat(newLon)) &&
+              parseFloat(newLat) !== 0 && parseFloat(newLon) !== 0) {
+            onIotPositionChange([parseFloat(newLat), parseFloat(newLon)]);
+          } else if (onIotPositionChange) {
+            // Jika tidak ada data valid, set null
+            onIotPositionChange(null);
+          }
+        }
+      });
+
+      socketRef.current.on('connect', () => {
+        console.log('Odometer connected to WebSocket server');
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('Odometer disconnected from WebSocket server');
+        // Set IoT position ke null saat disconnect
+        if (onIotPositionChange) {
+          onIotPositionChange(null);
+        }
+      });
+
+      // socketRef.current.on('connect_error', (error) => {
+      //   console.error('Odometer WebSocket connection error:', error);
+      //   // Fallback ke data statis jika koneksi gagal
+      //   setNilaiAccelX(0);
+      //   setNilaiAccelY(0);
+      //   setNilaiAccelZ(0);
+      //   setPh(7);
+      //   setTemp(25);
+      //   setTurbidity(0);
+      //   setSpeed(0);
+      // });
     }
-  }, [latestData]);
+
+    return () => {
+    //   if (socketRef.current) {
+    //     socketRef.current.disconnect();
+    //     socketRef.current = null;
+    //   }
+    };
+  }, [onIotPositionChange]);
+
+  // Fallback: update dari prop latestData jika tidak ada data real-time
+  // useEffect(() => {
+  //   if (latestData) {
+  //     setNilaiAccelX(latestData.accel_x || latestData.nilai_accel_x || 0);
+  //     setNilaiAccelY(latestData.accel_y || latestData.nilai_accel_y || 0);
+  //     setNilaiAccelZ(latestData.accel_z || latestData.nilai_accel_z || 0);
+  //     setPh(latestData.ph || parseFloat(latestData.nilai_ph) || 7);
+  //     setTemp(latestData.temperature || latestData.nilai_temperature || 0);
+  //     setTurbidity(latestData.turbidity || latestData.nilai_turbidity || 0);
+  //     setSpeed(latestData.speed || latestData.nilai_speed || 0);
+  //     setLatitude(latestData.latitude || 0);
+  //     setLongitude(latestData.longitude || 0);
+  //   }
+  // }, [latestData]);
+
+  // Tambahkan logic untuk mengambil data dari endpoint getCurrentData seperti di dashboard
+  // useEffect(() => {
+  //   const fetchLatestData = async () => {
+  //     try {
+  //       const response = await fetch(`${port}getCurrentData`);
+  //       const result = await response.json();
+  //       if (result.success && result.data) {
+  //         // Update state sensor data dari endpoint
+  //         setNilaiAccelX(result.data.nilai_accel_x || 0);
+  //         setNilaiAccelY(result.data.nilai_accel_y || 0);
+  //         setNilaiAccelZ(result.data.nilai_accel_z || 0);
+  //         setPh(parseFloat(result.data.nilai_ph) || 0);
+  //         setTemp(result.data.nilai_temperature || 0);
+  //         setTurbidity(result.data.nilai_turbidity || 0);
+  //         setSpeed(result.data.nilai_speed || 0);
+  //         setLatitude(result.data.latitude || 0);
+  //         setLongitude(result.data.longitude || 0);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching latest data for odometer:', error);
+  //     }
+  //   };
+
+  //   //    
+  // }, []);
 
   // Update timestamp every second
   useEffect(() => {
