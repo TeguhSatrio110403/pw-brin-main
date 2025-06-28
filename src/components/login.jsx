@@ -210,18 +210,45 @@ const login = () => {
       <img src="./Security-pana.svg" alt="Security Icon" />
 
       {alertVisible && (
-        <Alert
-          message={alertMessage}
-          type={alertType}
-          showIcon
-          closable
-          onClose={() => setAlertVisible(false)}
-          style={{
-            marginBottom: '20px',
-            width: '100%',
-            maxWidth: '400px'
-          }}
-        />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          zIndex: 2000,
+          display: 'flex',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          animation: 'slideDown 0.4s',
+        }}>
+          <Alert
+            message={alertMessage}
+            type={alertType}
+            showIcon
+            closable
+            onClose={() => setAlertVisible(false)}
+            style={{
+              marginTop: 16,
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: alertType === 'success' ? '#e6ffed' : '#fff1f0',
+              // borderColor: alertType === 'success' ? '#52c41a' : '#ff4d4f',
+              color: alertType === 'success' ? '#389e0d' : '#cf1322',
+              fontWeight: 500,
+              fontSize: 16,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              borderRadius: 10,
+              pointerEvents: 'auto',
+            }}
+            icon={null}
+          />
+          <style>{`
+            @keyframes slideDown {
+              0% { transform: translateY(-100%); opacity: 0; }
+              100% { transform: translateY(0); opacity: 1; }
+            }
+          `}</style>
+        </div>
       )}
 
       {/* <div className="login-toggle-container">

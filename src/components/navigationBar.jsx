@@ -160,7 +160,6 @@ const NavBar = () => {
                         <Dropdown.Item 
                           as={Link} 
                           to="/dashboardAdmin" 
-                          className="text-danger"
                         >
                           <i className="bi bi-gear-fill me-2"></i>Beranda
                         </Dropdown.Item>
@@ -171,13 +170,12 @@ const NavBar = () => {
                         <Dropdown.Item 
                           as={Link} 
                           to="/dashboardObserver" 
-                          className="text-primary"
                         >
                           <i className="bi bi-eye-fill me-2"></i>Beranda
                         </Dropdown.Item>
                       )}
                       
-                      <Dropdown.Item onClick={() => setShowModal(true)} className="text-danger">
+                      <Dropdown.Item onClick={() => setShowModal(true)} className="">
                         <i className="bi bi-box-arrow-right me-2"></i>Logout
                       </Dropdown.Item>
                     </Dropdown.Menu>
@@ -194,7 +192,7 @@ const NavBar = () => {
                       href="/download"
                       className="unduh-aplikasi-button"
                     >
-                      <i className="bi bi-cloud-arrow-down"></i> Unduh Aplikasi
+                      <i className="bi bi-cloud-arrow-down" style={{ marginRight: 6, fontSize: 22 }}></i> Unduh Aplikasi
                     </Button>
                   </Nav>
                 </>
@@ -240,8 +238,8 @@ const NavBar = () => {
                 {/* Tambahkan link ke Admin Dashboard jika user adalah admin */}
                 {isAdmin && (
                   <Nav.Item>
-                    <Link to="/dashboardAdmin" className="nav-link item-list py-3 text-danger">
-                      <i className="bi bi-gear-fill me-2"></i>Admin Dashboard
+                    <Link to="/dashboardAdmin" className="nav-link item-list py-3">
+                      <i className="bi bi-gear-fill me-2"></i>Beranda
                     </Link>
                   </Nav.Item>
                 )}
@@ -249,8 +247,8 @@ const NavBar = () => {
                 {/* Link ke Observer Dashboard jika user adalah observer */}
                 {isObserver && (
                   <Nav.Item>
-                    <Link to="/dashboardObserver" className="nav-link item-list py-3 text-primary">
-                      <i className="bi bi-eye-fill me-2"></i>Observer Dashboard
+                    <Link to="/dashboardObserver" className="nav-link item-list py-3">
+                      <i className="bi bi-eye-fill me-2"></i>Beranda
                     </Link>
                   </Nav.Item>
                 )}

@@ -471,26 +471,49 @@ const Feeds = () => {
       scales: {
         y: {
           min: 0,
-          max: 9,
+          max: 14,
           ticks: {
             stepSize: 1,
+            callback: function (value) {
+              return value.toFixed(1);
+            },
           },
+          // title: {
+          //   display: true,
+          //   text: 'pH Level'
+          // }
         },
+        x: {
+          title: {
+            display: true,
+            text: 'Waktu'
+          }
+        }
       },
     },
     temperature: {
       ...baseOptions,
       scales: {
         y: {
-          min: 0,
-          max: 1000,
+          min: -60,
+          max: 100,
           ticks: {
-            stepSize: 100,
+            stepSize: 20,
             callback: function (value) {
               return `${value}°C`;
             },
           },
+          // title: {
+          //   display: true,
+          //   text: 'Suhu (°C)'
+          // }
         },
+        x: {
+          title: {
+            display: true,
+            text: 'Waktu'
+          }
+        }
       },
     },
     turbidity: {
@@ -505,37 +528,67 @@ const Feeds = () => {
               return `${value} NTU`;
             },
           },
+          // title: {
+          //   display: true,
+          //   text: 'Kekeruhan (NTU)'
+          // }
         },
+        x: {
+          title: {
+            display: true,
+            text: 'Waktu'
+          }
+        }
       },
     },
     acceleration: {
       ...baseOptions,
       scales: {
         y: {
-          min: 0,
-          max: 100,
+          min: -6,
+          max: 10,
           ticks: {
-            stepSize: 10,
+            stepSize: 2,
             callback: function (value) {
-              return `${value} m/s`;
+              return `${value} m/s²`;
             },
           },
+          // title: {
+          //   display: true,
+          //   text: 'Percepatan (m/s²)'
+          // }
         },
+        x: {
+          title: {
+            display: true,
+            text: 'Waktu'
+          }
+        }
       },
     },
     speed: {
       ...baseOptions,
       scales: {
         y: {
-          min: 0,
-          max: 100,
+          min: -12,
+          max: 20,
           ticks: {
-            stepSize: 10,
+            stepSize: 4,
             callback: function (value) {
               return `${value} m/s`;
             },
           },
+          // title: {
+          //   display: true,
+          //   text: 'Kecepatan (m/s)'
+          // }
         },
+        x: {
+          title: {
+            display: true,
+            text: 'Waktu'
+          }
+        }
       },
     },
   };
@@ -596,13 +649,13 @@ const Feeds = () => {
   const convertToCSV = (data) => {
     const headers = [
       'Tanggal',
-      'Accelerometer X',
-      'Accelerometer Y',
-      'Accelerometer Z',
+      'Accelerometer X (m/s²)',
+      'Accelerometer Y (m/s²)',
+      'Accelerometer Z (m/s²)',
       'pH',
-      'Suhu Air',
-      'Tingkat Kekeruhan',
-      'Kecepatan Alat'
+      'Suhu Air (°C)',
+      'Tingkat Kekeruhan (NTU)',
+      'Kecepatan Alat (m/s)'
     ];
 
     const rows = data.map(item => [

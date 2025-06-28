@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button, Container, Pagination } from "react-bootstrap";
-import FeedModal from "../modalAnalisis/modaldata.jsx"; // Import modal
+import AnalisisModal from "../modalAnalisis/modaldata.jsx"; // Import modal
 import { port } from "../constant/https.jsx"; // Import port dari constant
 
 // Definisikan port (URL API)
@@ -10,10 +10,10 @@ const Analisis = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
-  const [filteredFeeds, setFilteredFeeds] = useState([]);
-  const [feeds, setFeeds] = useState([]); // State untuk menyimpan data dari API
+  const [filteredAnalisis, setFilteredAnalisis] = useState([]);
+  const [analisisList, setAnalisisList] = useState([]); // State untuk menyimpan data dari API
   const [showModal, setShowModal] = useState(false);
-  const [selectedFeed, setSelectedFeed] = useState(null);
+  const [selectedAnalisis, setSelectedAnalisis] = useState(null);
   const [sortOrder, setSortOrder] = useState('desc'); // Default: terbaru
 
   // Fetch data dari API
@@ -41,18 +41,18 @@ const Analisis = () => {
         
         // Sort data berdasarkan tanggal terbaru
         const sortedData = formattedData.sort((a, b) => b.rawDate - a.rawDate);
-        setFeeds(sortedData);
-        setFilteredFeeds(sortedData);
+        setAnalisisList(sortedData);
+        setFilteredAnalisis(sortedData);
       })
       .catch((error) => console.error("Error fetching data:", error));
   }, []);
 
   // Filter data berdasarkan search query dan sort order
   useEffect(() => {
-    let result = feeds.filter(
-      (feed) =>
-        feed.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        feed.address.toLowerCase().includes(searchQuery.toLowerCase())
+    let result = analisisList.filter(
+      (analisis) =>
+        analisis.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        analisis.address.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     // Sort data berdasarkan sort order
@@ -62,19 +62,26 @@ const Analisis = () => {
         : a.rawDate - b.rawDate;  // Terlama ke terbaru
     });
 
-    setFilteredFeeds(result);
+    setFilteredAnalisis(result);
     setCurrentPage(1);
-  }, [searchQuery, feeds, sortOrder]);
+  }, [searchQuery, analisisList, sortOrder]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredFeeds.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredFeeds.length / itemsPerPage);
+  const currentItems = filteredAnalisis.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAnalisis.length / itemsPerPage);
 
   // Handle Modal
-  const handleShowModal = (feed) => {
-    setSelectedFeed(feed);
+  const handleShowModal = (analisis) => {
+    setSelectedAnalisis(analisis);
     setShowModal(true);
+  };
+
+  // Handler untuk tombol 'Lihat di Peta' di modal
+  const handleFocusMarker = (coords) => {
+    // Contoh: bisa dihubungkan ke dashboard/map, atau hanya log
+    console.log('Fokus ke marker:', coords);
+    // TODO: Integrasi dengan map/dashboard jika perlu
   };
 
   // Handle Sort
@@ -145,8 +152,8 @@ const Analisis = () => {
         {currentItems.length > 0 ? (
           <>
             <div className="feeds-grid">
-              {currentItems.map((feed) => (
-                <div key={feed.id} className="feed-card" style={{
+              {currentItems.map((analisis) => (
+                <div key={analisis.id} className="feed-card" style={{
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%'
@@ -154,17 +161,17 @@ const Analisis = () => {
                   <div>
                     <h3>
                       <i className="bi bi-geo-alt-fill text-danger"></i>
-                      <b> {feed.name}</b>
+                      <b> {analisis.name}</b>
                     </h3>
                     <br />
-                    <p className="feed-address">{feed.address}</p>
+                    <p className="feed-address">{analisis.address}</p>
                     <p className="feed-date">
-                      <i className="bi bi-calendar2-week-fill text-danger"></i> {feed.date}
+                      <i className="bi bi-calendar2-week-fill text-danger"></i> {analisis.date}
                     </p>
                   </div>
                   <Button
                     className="learn-more-button btn-danger"
-                    onClick={() => handleShowModal(feed)}
+                    onClick={() => handleShowModal(analisis)}
                     style={{ marginTop: 'auto' }}
                   >
                     Lihat Detail <i className="bi bi-box-arrow-right"></i>
@@ -283,10 +290,11 @@ const Analisis = () => {
         )}
 
         {/* Modal Box */}
-        <FeedModal
+        <AnalisisModal
           show={showModal}
           onHide={() => setShowModal(false)}
-          feed={selectedFeed}
+          analisis={selectedAnalisis}
+          onFocusMarker={handleFocusMarker}
         />
       </Container>
       <style>{`

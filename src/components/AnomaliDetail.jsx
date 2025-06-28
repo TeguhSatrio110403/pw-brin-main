@@ -1,0 +1,307 @@
+import React, { useMemo, useEffect, useState } from 'react';
+import { Card, Tag, Button, Space, Divider } from 'antd';
+import { ExclamationCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { port } from '../constant/https.jsx';
+
+const paramIcons = {
+  Turbidity: <span style={{ color: '#E62F2A', fontSize: 20, marginRight: 8 }}>💧</span>,
+  pH: <span style={{ color: '#E62F2A', fontSize: 20, marginRight: 8 }}>⚗️</span>,
+  Temperature: <span style={{ color: '#E62F2A', fontSize: 20, marginRight: 8 }}>🌡️</span>,
+};
+
+const paramLabels = {
+  Turbidity: 'Turbidity',
+  pH: 'pH',
+  Temperature: 'Temperature',
+};
+
+const paramRanges = {
+  Turbidity: '> -1 dan < 25',
+  pH: '> 6 dan < 9',
+  Temperature: '> 10 dan < 35',
+};
+
+const paramThresholds = {
+  Turbidity: '> 25',
+  pH: '> 9',
+  Temperature: '> 35',
+};
+
+// Marker HTML warna biru (lokasi penelitian) dan ungu (sensor)
+const blueIcon = L.divIcon({
+  className: 'main-marker',
+  html: '<div style="background-color: #3b82f6; width: 28px; height: 28px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>',
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+});
+const purpleIcon = L.divIcon({
+  className: 'sensor-marker',
+  html: '<div style="background-color: #6366f1; width: 28px; height: 28px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>',
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+});
+
+// Komponen untuk auto-fit bounds dua marker
+function FitBounds({ positions }) {
+  const map = useMap();
+  useEffect(() => {
+    if (positions && positions.length === 2 && positions[0][0] && positions[0][1] && positions[1][0] && positions[1][1]) {
+      map.fitBounds(positions, { padding: [40, 40] });
+    }
+  }, [positions, map]);
+  return null;
+}
+
+const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, onUpdate }) => {
+  const [lokasiDetail, setLokasiDetail] = useState(lokasi);
+
+  useEffect(() => {
+    // Debug: tampilkan data mentah
+    console.log('WEB - lokasiPenelitian:', lokasiPenelitian);
+    console.log('WEB - lokasiDetail:', lokasiDetail);
+    console.log('WEB - anomali:', anomali);
+    // Hanya fetch jika lokasi tidak punya detail
+    if (lokasi && (!lokasi.name || !lokasi.coordinates) && lokasi.id) {
+      const fetchLocationData = async (id_lokasi) => {
+        try {
+          const apiUrl = port.endsWith('/')
+            ? `${port}data_lokasi/${id_lokasi}`
+            : `${port}/data_lokasi/${id_lokasi}`;
+          const response = await fetch(apiUrl);
+          if (!response.ok) return;
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setLokasiDetail(data[0]);
+          } else if (data && typeof data === 'object') {
+            setLokasiDetail(data);
+          }
+        } catch (error) {
+          // Biarkan lokasiDetail tetap default
+        }
+      };
+      fetchLocationData(lokasi.id);
+    } else {
+      setLokasiDetail(lokasi);
+    }
+  }, [lokasi]);
+
+  if (!anomali || !lokasiDetail) return <div>Data tidak ditemukan.</div>;
+
+  // Ambil parameter yang anomali
+  const params = [
+    { key: 'Turbidity', ...anomali.turbidity },
+    { key: 'pH', ...anomali.pH },
+    { key: 'Temperature', ...anomali.temperature },
+  ];
+  const vitalAnomali = params.filter(p => p.isAnomaly);
+
+  // Koordinat lokasi penelitian utama (dari data_lokasi)
+  const [mainLat, mainLon] = useMemo(() => {
+    let lat = null, lon = null;
+    if (lokasiPenelitian && lokasiPenelitian.lat && lokasiPenelitian.lon) {
+      lat = parseFloat(lokasiPenelitian.lat);
+      lon = parseFloat(lokasiPenelitian.lon);
+    } else if (lokasiPenelitian && lokasiPenelitian.coordinates) {
+      [lat, lon] = lokasiPenelitian.coordinates.split(',').map(s => parseFloat(s.trim()));
+    }
+    console.log('WEB - Koordinat Lokasi Penelitian:', lat, lon);
+    return [lat, lon];
+  }, [lokasiPenelitian]);
+
+  // Koordinat marker sensor (ambil dari data sensor, prioritas pH, lalu temperature, lalu turbidity)
+  const [lat, lon] = useMemo(() => {
+    let sensorLat = null, sensorLon = null;
+    if (anomali.pH?.lat && anomali.pH?.lon) {
+      console.log('WEB - anomali.pH.lat:', anomali.pH.lat, typeof anomali.pH.lat);
+      console.log('WEB - anomali.pH.lon:', anomali.pH.lon, typeof anomali.pH.lon);
+      sensorLat = parseFloat(anomali.pH.lat);
+      sensorLon = parseFloat(anomali.pH.lon);
+      console.log('WEB - Parsed pH lat/lon:', sensorLat, sensorLon);
+    } else if (anomali.temperature?.lat && anomali.temperature?.lon) {
+      sensorLat = parseFloat(anomali.temperature.lat);
+      sensorLon = parseFloat(anomali.temperature.lon);
+      console.log('WEB - Parsed temperature lat/lon:', sensorLat, sensorLon);
+    } else if (anomali.turbidity?.lat && anomali.turbidity?.lon) {
+      sensorLat = parseFloat(anomali.turbidity.lat);
+      sensorLon = parseFloat(anomali.turbidity.lon);
+      console.log('WEB - Parsed turbidity lat/lon:', sensorLat, sensorLon);
+    } else if (lokasiDetail && lokasiDetail.coordinates) {
+      [sensorLat, sensorLon] = lokasiDetail.coordinates.split(',').map(s => parseFloat(s.trim()));
+      console.log('WEB - Fallback lokasiDetail.coordinates:', sensorLat, sensorLon);
+    } else {
+      sensorLat = mainLat;
+      sensorLon = mainLon;
+      console.log('WEB - Fallback mainLat/mainLon:', sensorLat, sensorLon);
+    }
+    console.log('WEB - Koordinat Data Sensor:', sensorLat, sensorLon);
+    return [sensorLat, sensorLon];
+  }, [anomali, lokasiDetail, mainLat, mainLon]);
+
+  // Polyline dari lokasi utama ke marker sensor
+  const polylinePositions = useMemo(() => (
+    mainLat && mainLon ? [ [mainLat, mainLon], [lat, lon] ] : null
+  ), [mainLat, mainLon, lat, lon]);
+
+  // Center map ke tengah antara dua marker (agar dua marker selalu terlihat)
+  const mapCenter = useMemo(() => {
+    if (mainLat && mainLon) {
+      return [
+        (mainLat + lat) / 2,
+        (mainLon + lon) / 2
+      ];
+    }
+    return [lat, lon];
+  }, [mainLat, mainLon, lat, lon]);
+
+  // Data sensor untuk popup
+  const sensorPopupContent = (
+    <div>
+      <b>Data Sensor</b>
+      <ul style={{ margin: 0, padding: '4px 0 0 18px', fontSize: 14 }}>
+        <li>pH: {anomali.pH?.value ?? '-'}</li>
+        <li>Temperatur: {anomali.temperature?.value ?? '-'} °C</li>
+        <li>Turbidity: {anomali.turbidity?.value ?? '-'} NTU</li>
+      </ul>
+      <div style={{ marginTop: 6, fontSize: 13, color: '#888' }}>
+        Koordinat: {lat}, {lon}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: 16 }}>
+      {/* Header Alert */}
+      <div style={{ background: '#E62F2A', color: 'white', borderRadius: 16, padding: 20, marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center' }}>
+          <ExclamationCircleOutlined style={{ fontSize: 22, marginRight: 10 }} />
+          Terdeteksi {vitalAnomali.length} Parameter Vital Anomali
+        </div>
+        <div style={{ background: '#fff0f0', color: '#E62F2A', borderRadius: 12, padding: 16, marginTop: 16 }}>
+          <div style={{ fontWeight: 500, marginBottom: 8 }}>Parameter berikut melebihi ambang batas normal:</div>
+          <Space>
+            {vitalAnomali.map(p => (
+              <Tag key={p.key} color="#F7E6EB" style={{ color: '#E62F2A', fontWeight: 600, fontSize: 16, borderRadius: 8, padding: '6px 18px' }}>
+                {paramIcons[p.key]} {paramLabels[p.key]}
+              </Tag>
+            ))}
+          </Space>
+          <div style={{ color: '#333', marginTop: 12, fontSize: 14 }}>
+            Parameter vital sangat penting untuk menentukan kualitas air. Nilai di luar batas normal memerlukan perhatian segera.
+          </div>
+        </div>
+      </div>
+
+      {/* Informasi Lokasi */}
+      <Card title={<span><EnvironmentOutlined /> Informasi Lokasi</span>} style={{ marginBottom: 24, borderRadius: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Nama Lokasi:</div>
+        <div style={{ fontSize: 18, marginBottom: 12 }}>{lokasiDetail.name}</div>
+        <div style={{ display: 'flex', gap: 32, marginBottom: 12 }}>
+          <div>
+            <div style={{ color: '#888' }}>ID Lokasi</div>
+            <div style={{ fontWeight: 500 }}>{lokasiDetail.id}</div>
+          </div>
+          <div>
+            <div style={{ color: '#888' }}>Tanggal</div>
+            <div style={{ fontWeight: 500 }}>{anomali.date} {anomali.time}</div>
+          </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ color: '#888' }}>Alamat Lengkap:</div>
+          <div style={{ background: '#f5f5f5', borderRadius: 8, padding: 8 }}>{lokasiDetail.address}</div>
+        </div>
+        <div>
+          <div style={{ color: '#888' }}>Koordinat Lokasi:</div>
+          <div style={{ background: '#f5f5f5', borderRadius: 8, padding: 8 }}>{lokasiDetail.coordinates}</div>
+        </div>
+      </Card>
+
+      {/* Peta Lokasi & Sensor */}
+      <Card title={<span>🗺️ Peta Lokasi & Sensor</span>} style={{ marginBottom: 24, borderRadius: 16 }}>
+        <div style={{ height: 220, borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+          <MapContainer
+            key={anomali.id || lokasiDetail.id || 'map-static'}
+            center={mapCenter}
+            zoom={14}
+            style={{ height: '100%', width: '100%' }}
+            scrollWheelZoom={false}
+            attributionControl={false}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {/* Auto-fit bounds jika dua marker valid */}
+            {polylinePositions && <FitBounds positions={polylinePositions} />}
+            {/* Polyline antara lokasi penelitian utama dan sensor */}
+            {polylinePositions && (
+              <Polyline positions={polylinePositions} color="#2a5ad7" />
+            )}
+            {/* Marker lokasi penelitian utama */}
+            {mainLat && mainLon && (
+              <Marker position={[mainLat, mainLon]} icon={blueIcon}>
+                <Popup>Lokasi Penelitian Utama</Popup>
+              </Marker>
+            )}
+            {/* Marker sensor (titik data) */}
+            <Marker position={[lat, lon]} icon={purpleIcon}>
+              <Popup>{sensorPopupContent}</Popup>
+            </Marker>
+          </MapContainer>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <b>Keterangan:</b> <span style={{ color: '#2a5ad7' }}>● Lokasi Utama</span>
+          <span style={{ color: '#E62F2A', marginLeft: 16 }}>● Titik Data Sensor</span>
+        </div>
+        <div style={{ color: '#888', marginBottom: 4 }}>Koordinat Sensor:</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <EnvironmentOutlined style={{ color: '#2a5ad7' }} />
+          <span style={{ fontWeight: 500 }}>{lat}, {lon}</span>
+        </div>
+        <div style={{ background: '#fff0f0', color: '#E62F2A', borderRadius: 8, padding: 8, fontWeight: 500 }}>
+          <ExclamationCircleOutlined /> Lokasi ini memiliki parameter air yang anomali
+        </div>
+      </Card>
+
+      {/* Data Sensor */}
+      <Card title={<span>Data Sensor</span>} style={{ marginBottom: 24, borderRadius: 16 }}>
+        {params.map(param => (
+          <div key={param.key} style={{ background: param.isAnomaly ? '#fff0f0' : '#f5f5f5', borderRadius: 12, padding: 18, marginBottom: 18, position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              {paramIcons[param.key]}
+              <span style={{ fontWeight: 600, fontSize: 16 }}>{paramLabels[param.key]}</span>
+              {param.isAnomaly && <Tag color="#E62F2A" style={{ position: 'absolute', right: 18, top: 18, fontWeight: 600 }}>Anomali</Tag>}
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#E62F2A', marginBottom: 8 }}>
+              {param.value} {param.key === 'Temperature' ? '°C' : ''}
+            </div>
+            {param.isAnomaly && (
+              <div style={{ background: '#fff', borderLeft: '4px solid #E62F2A', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ color: '#E62F2A', fontWeight: 600 }}>
+                  Terlalu tinggi ({paramThresholds[param.key]})
+                </div>
+                <div style={{ color: '#888' }}>Range normal: {paramRanges[param.key]}</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </Card>
+
+      {/* Aksi */}
+      <Card style={{ borderRadius: 16, marginBottom: 24 }}>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Update Parameter & Prediksi</div>
+        <div style={{ color: '#888', marginBottom: 16 }}>
+          Update nilai pH, Temperatur, dan Kekeruhan untuk mendapatkan prediksi kualitas air terbaru
+        </div>
+        <Button type="primary" onClick={onUpdate} style={{ borderRadius: 8, marginBottom: 8 }} block>
+          Update Parameter & Prediksi
+        </Button>
+      </Card>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+        <Button onClick={onBack} style={{ borderRadius: 8, flex: 1 }}>Kembali</Button>
+        <Button danger onClick={onDelete} style={{ borderRadius: 8, flex: 1 }}>Hapus Data</Button>
+      </div>
+    </div>
+  );
+};
+
+export default AnomaliDetail; 

@@ -91,6 +91,7 @@ const Dashboard = () => {
   const [itemsPerPage] = useState(6);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [iotPosition, setIotPosition] = useState(null);
+  const [latestSensorData, setLatestSensorData] = useState(null);
   const [serverStatus, setServerStatus] = useState('checking');
   const [showStatus, setShowStatus] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -265,6 +266,7 @@ const Dashboard = () => {
 
     socketRef.current.on('sensorData', (data) => {
       setSensorData(prev => [...prev, data]);
+      setLatestSensorData(data); // Tambahkan ini agar odometer dan marker IoT sinkron
       
       // Update posisi IoT jika ada data lokasi
       if (data.lat && data.lon) {
@@ -1046,6 +1048,41 @@ const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchLatestData = async () => {
+        try {
+            const response = await fetch(`${port}getCurrentData`);
+            const result = await response.json();
+            if (result.success && result.data) {
+                setLatestSensorData(result.data); 
+
+                const { latitude, longitude } = result.data;
+                if (
+                    latitude && longitude &&
+                    !isNaN(parseFloat(latitude)) &&
+                    !isNaN(parseFloat(longitude)) &&
+                    parseFloat(latitude) !== 0 &&
+                    parseFloat(longitude) !== 0
+                ) {
+                    setIotPosition([parseFloat(latitude), parseFloat(longitude)]);
+                } else {
+                    setIotPosition(null);
+                }
+            } else {
+                setLatestSensorData(null);
+                setIotPosition(null);
+            }
+        } catch (e) {
+            setLatestSensorData(null);
+            setIotPosition(null);
+        }
+    };
+
+    fetchLatestData();
+    const interval = setInterval(fetchLatestData, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div>
       {/* Status Server Alert */}
@@ -1278,7 +1315,7 @@ const Dashboard = () => {
             </div>
 
             <div className="app">
-              <DataOdometer />
+              <DataOdometer latestData={latestSensorData} />
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -2167,10 +2204,7 @@ const Dashboard = () => {
                           className="btn btn-danger"
                           onClick={() => {
                             const selectedLocation = [parseFloat(item.lat), parseFloat(item.lon)];
-                            // Hanya mengubah posisi peta tanpa mengubah posisi pengguna
                             setShowHistoryModal(false);
-                            
-                            // Tambahkan animasi focus marker
                             if (mapRef.current) {
                               mapRef.current.flyTo(selectedLocation, 16, {
                                 duration: 1.5,
@@ -2188,12 +2222,35 @@ const Dashboard = () => {
                             border: 'none',
                             cursor: 'pointer',
                             transition: 'all 0.3s ease',
-                            // ':hover': {
-                            //   backgroundColor: '#CD1B16'
-                            // }
                           }}
                         >
                           Lihat di Peta <i className="bi bi-box-arrow-right"></i>
+                        </button>
+                        <button
+                          className="btn btn-route"
+                          onClick={() => {
+                            const url = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                            window.open(url, '_blank');
+                          }}
+                          style={{
+                            width: '100%',
+                            marginTop: '10px',
+                            borderRadius: '100px',
+                            backgroundColor: '#27ae60',
+                            padding: '10px',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            transition: 'all 0.3s ease',
+                          }}
+                        >
+                          Rute ke Lokasi
+                          <i className="bi bi-geo-alt"></i>
                         </button>
                   </div>
                     ))

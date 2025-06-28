@@ -3,7 +3,7 @@ import { Card, Modal } from 'react-bootstrap';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import { port } from '../../constant/https.jsx';
 
-const HookMqtt = () => {
+const HookMqtt = ({ latestData }) => {
   const [client, setClient] = useState(null);
   const [payload, setPayload] = useState({});
   
@@ -40,63 +40,18 @@ const HookMqtt = () => {
   }, [client]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // const response = await fetch('http://localhost:3000/getCurrentData');
-        const response = await fetch(`${port}getCurrentData`); //ubah URL endpoint untuk mendapatkan data sensor
-        
-        // Periksa status respons
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.warn("Response bukan JSON, menggunakan default value");
-          return; // Keluar dari fungsi jika bukan JSON
-        }
-        
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          const sensorData = result.data;
-          setNilaiAccelX(sensorData.nilai_accel_x || 0);
-          setNilaiAccelY(sensorData.nilai_accel_y || 0);
-          setNilaiAccelZ(sensorData.nilai_accel_z || 0);
-          setPh(parseFloat(sensorData.ph) || 0);
-          setTemp(sensorData.temperature || 0);
-          setTurbidity(sensorData.turbidity || 0);
-          setSpeed(sensorData.speed || 0);
-          setLatitude(sensorData.latitude || 0);
-          setLongitude(sensorData.longitude || 0);
-        } else {
-          console.warn("Data tidak valid atau tidak lengkap:", result);
-          setNilaiAccelX(0);
-          setNilaiAccelY(0);
-          setNilaiAccelZ(0);
-          setPh(0);
-          setTemp(0);
-          setTurbidity(0);
-          setSpeed(0);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setNilaiAccelX(0);
-        setNilaiAccelY(0);
-        setNilaiAccelZ(0);
-        setPh(0);
-        setTemp(0);
-        setTurbidity(0);
-        setSpeed(0);
-      }
-    };
-
-    // Menghapus interval, hanya fetch data satu kali
-    fetchData();
-    
-    // Mengembalikan fungsi kosong untuk cleanup
-    return () => {};
-  }, []);
+    if (latestData) {
+      setNilaiAccelX(latestData.nilai_accel_x || 0);
+      setNilaiAccelY(latestData.nilai_accel_y || 0);
+      setNilaiAccelZ(latestData.nilai_accel_z || 0);
+      setPh(parseFloat(latestData.ph) || 0);
+      setTemp(latestData.temperature || 0);
+      setTurbidity(latestData.turbidity || 0);
+      setSpeed(latestData.speed || 0);
+      setLatitude(latestData.latitude || 0);
+      setLongitude(latestData.longitude || 0);
+    }
+  }, [latestData]);
 
   // Update timestamp every second
   useEffect(() => {
