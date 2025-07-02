@@ -1111,8 +1111,43 @@ const Dashboard = () => {
   const handleSetMonitoring = (item) => {
     setMonitoringLocation(item);
     localStorage.setItem('monitoringLocation', JSON.stringify(item));
-    // Notifikasi sederhana
-    alert(`Lokasi "${item.name}" telah dijadikan lokasi monitoring utama!`);
+    // Emit ke socket agar mobile juga update
+    if (socketRef.current) {
+      socketRef.current.emit('updateLocation', {
+        id_lokasi: item.id, // id di web pakai 'id', mobile pakai 'id_lokasi'
+        nama_sungai: item.name, // nama sungai
+        alamat: item.address, // alamat lokasi
+        latitude: item.lat ? item.lat.toString() : (item.position ? item.position[0].toString() : ''),
+        longitude: item.lon ? item.lon.toString() : (item.position ? item.position[1].toString() : '')
+      });
+    }
+    // Ganti alert dengan notifikasi custom gaya aplikasi
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #27ae60;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      z-index: 1000;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      animation: fadeInOut 4s ease-in-out;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+      font-size: 16px;
+    `;
+    notification.innerHTML = `
+      <i class=\"bi bi-star-fill\" style=\"font-size: 18px; color: #fff;\"></i>
+      Lokasi <b>\"${item.name}\"</b> telah dijadikan lokasi monitoring utama!`;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+      notification.remove();
+    }, 4000);
   };
 
   // Fungsi cek apakah item adalah monitoring
@@ -2428,6 +2463,67 @@ const Dashboard = () => {
                           {isMonitoring(item) ? 'Monitoring Aktif' : 'Set sebagai Monitoring'}
                           <i className={isMonitoring(item) ? 'bi bi-star-fill' : 'bi bi-star'}></i>
                         </button>
+                        {/* Tombol Hapus Monitoring jika ini lokasi monitoring aktif */}
+                        {isMonitoring(item) && (
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => {
+                              // Hapus monitoringLocation dari localStorage dan state
+                              setMonitoringLocation(null);
+                              localStorage.removeItem('monitoringLocation');
+                              // Emit ke socket agar mobile juga update
+                              if (socketRef.current) {
+                                socketRef.current.emit('clearLocation');
+                              }
+                              // Notifikasi custom
+                              const notification = document.createElement('div');
+                              notification.style.cssText = `
+                                position: fixed;
+                                bottom: 20px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background-color: #e74c3c;
+                                color: white;
+                                padding: 12px 24px;
+                                border-radius: 8px;
+                                z-index: 1000;
+                                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                                animation: fadeInOut 4s ease-in-out;
+                                display: flex;
+                                align-items: center;
+                                gap: 10px;
+                                font-weight: 500;
+                                font-size: 16px;
+                              `;
+                              notification.innerHTML = `
+                                <i class=\"bi bi-x-circle-fill\" style=\"font-size: 18px; color: #fff;\"></i>
+                                Monitoring lokasi telah dinonaktifkan.`;
+                              document.body.appendChild(notification);
+                              setTimeout(() => {
+                                notification.remove();
+                              }, 4000);
+                            }}
+                            style={{
+                              width: '100%',
+                              marginTop: '10px',
+                              borderRadius: '100px',
+                              backgroundColor: '#e74c3c',
+                              padding: '10px',
+                              color: 'white',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              transition: 'all 0.3s ease',
+                            }}
+                          >
+                            <i className="bi bi-x-circle-fill"></i>
+                            Hapus Monitoring
+                          </button>
+                        )}
                       </div>
                     ))
                   )}
