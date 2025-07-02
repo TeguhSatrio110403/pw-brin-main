@@ -1,14 +1,15 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useRef } from 'react';
 import { Card, Modal } from 'react-bootstrap';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import { port } from '../../constant/https.jsx';
+import { io } from 'socket.io-client';
 
-const HookMqtt = () => {
-  const [client, setClient] = useState(null);
+const HookMqtt = ({ latestData, onIotPositionChange }) => {
   const [payload, setPayload] = useState({});
   
-  const [accelX, setAccelX] = useState(0);
-  const [accelY, setAccelY] = useState(0);
-  const [accelZ, setAccelZ] = useState(0);
+  const [nilai_accel_x, setNilaiAccelX] = useState(0);
+  const [nilai_accel_y, setNilaiAccelY] = useState(0);
+  const [nilai_accel_z, setNilaiAccelZ] = useState(0);
   const [ph, setPh] = useState(0);
   const [temp, setTemp] = useState(0);
   const [turbidity, setTurbidity] = useState(0);
@@ -19,52 +20,123 @@ const HookMqtt = () => {
   const [showModal, setShowModal] = useState(false);
   const [speed, setSpeed] = useState(0);
 
+  const socketRef = useRef(null);
+
+  // Setup Socket.IO connection seperti di mobile
   useEffect(() => {
-    if (client) {
-      client.on('message', (topic, message) => {
-        const payload = JSON.parse(message.toString());
-        setPayload(payload);
-      
-        setAccelX(payload.accelX || 0);
-        setAccelY(payload.accelY || 0);
-        setAccelZ(payload.accelZ || 0);
-        setPh(payload.ph || 0);
-        setTemp(payload.temp || 0);
-        setTurbidity(payload.turbidity || 0);
-        setLatitude(payload.latitude || 0);
-        setLongitude(payload.longitude || 0);
-        setSpeed(payload.speed || 0);
+    if (!socketRef.current) {
+      socketRef.current = io(port, {
+        transports: ['websocket'],
+        reconnectionAttempts: 5,
+        timeout: 10000,
       });
-    }
-  }, [client]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // const response = await fetch('http://localhost:3000/getCurrentData');
-        const response = await fetch('https://server-water-sensors.onrender.com'); //url server
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          const { message } = result.data;
+      // Listener untuk data MQTT dari server (sama seperti di mobile Home.tsx)
+      socketRef.current.on('mqttData', (data) => {
+        console.log('📩 Data MQTT diterima di odometer:', data);
+        if (data?.message) {
+          setPayload(data.message);
           
-          setAccelX(message.accel_x || 0);
-          setAccelY(message.accel_y || 0);
-          setAccelZ(message.accel_z || 0);
-          setPh(parseFloat(message.ph) || 0);
-          setTemp(message.temperature || 0);
-          setTurbidity(message.turbidity || 0);
-          setSpeed(message.speed || 0);
+          // Update state sensor data - konversi ke number dulu
+          setNilaiAccelX(Number(data.message.accel_x || 0).toFixed(2));
+          setNilaiAccelY(Number(data.message.accel_y || 0).toFixed(2));
+          setNilaiAccelZ(Number(data.message.accel_z || 0).toFixed(2));
+          setPh(Number(data.message.ph || 7).toFixed(2));
+          setTemp(Number(data.message.temperature || 0).toFixed(2));
+          setTurbidity(Number(data.message.turbidity || 0).toFixed(2));
+          setSpeed(Number(data.message.speed || 0).toFixed(2));
+          
+          // Update latitude dan longitude
+          const newLat = data.message.latitude || 0;
+          const newLon = data.message.longitude || 0;
+          setLatitude(newLat);
+          setLongitude(newLon);
+          
+          // Kirim posisi IoT ke parent component jika ada callback
+          if (onIotPositionChange && newLat && newLon && 
+              !isNaN(parseFloat(newLat)) && !isNaN(parseFloat(newLon)) &&
+              parseFloat(newLat) !== 0 && parseFloat(newLon) !== 0) {
+            onIotPositionChange([parseFloat(newLat), parseFloat(newLon)]);
+          } else if (onIotPositionChange) {
+            // Jika tidak ada data valid, set null
+            onIotPositionChange(null);
+          }
         }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
+      });
 
-    const interval = setInterval(fetchData, 5000);
-    fetchData();
-    return () => clearInterval(interval);
-  }, []);
+      socketRef.current.on('connect', () => {
+        console.log('Odometer connected to WebSocket server');
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('Odometer disconnected from WebSocket server');
+        // Set IoT position ke null saat disconnect
+        if (onIotPositionChange) {
+          onIotPositionChange(null);
+        }
+      });
+
+      // socketRef.current.on('connect_error', (error) => {
+      //   console.error('Odometer WebSocket connection error:', error);
+      //   // Fallback ke data statis jika koneksi gagal
+      //   setNilaiAccelX(0);
+      //   setNilaiAccelY(0);
+      //   setNilaiAccelZ(0);
+      //   setPh(7);
+      //   setTemp(25);
+      //   setTurbidity(0);
+      //   setSpeed(0);
+      // });
+    }
+
+    return () => {
+    //   if (socketRef.current) {
+    //     socketRef.current.disconnect();
+    //     socketRef.current = null;
+    //   }
+    };
+  }, [onIotPositionChange]);
+
+  // Fallback: update dari prop latestData jika tidak ada data real-time
+  // useEffect(() => {
+  //   if (latestData) {
+  //     setNilaiAccelX(latestData.accel_x || latestData.nilai_accel_x || 0);
+  //     setNilaiAccelY(latestData.accel_y || latestData.nilai_accel_y || 0);
+  //     setNilaiAccelZ(latestData.accel_z || latestData.nilai_accel_z || 0);
+  //     setPh(latestData.ph || parseFloat(latestData.nilai_ph) || 7);
+  //     setTemp(latestData.temperature || latestData.nilai_temperature || 0);
+  //     setTurbidity(latestData.turbidity || latestData.nilai_turbidity || 0);
+  //     setSpeed(latestData.speed || latestData.nilai_speed || 0);
+  //     setLatitude(latestData.latitude || 0);
+  //     setLongitude(latestData.longitude || 0);
+  //   }
+  // }, [latestData]);
+
+  // Tambahkan logic untuk mengambil data dari endpoint getCurrentData seperti di dashboard
+  // useEffect(() => {
+  //   const fetchLatestData = async () => {
+  //     try {
+  //       const response = await fetch(`${port}getCurrentData`);
+  //       const result = await response.json();
+  //       if (result.success && result.data) {
+  //         // Update state sensor data dari endpoint
+  //         setNilaiAccelX(result.data.nilai_accel_x || 0);
+  //         setNilaiAccelY(result.data.nilai_accel_y || 0);
+  //         setNilaiAccelZ(result.data.nilai_accel_z || 0);
+  //         setPh(parseFloat(result.data.nilai_ph) || 0);
+  //         setTemp(result.data.nilai_temperature || 0);
+  //         setTurbidity(result.data.nilai_turbidity || 0);
+  //         setSpeed(result.data.nilai_speed || 0);
+  //         setLatitude(result.data.latitude || 0);
+  //         setLongitude(result.data.longitude || 0);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching latest data for odometer:', error);
+  //     }
+  //   };
+
+  //   //    
+  // }, []);
 
   // Update timestamp every second
   useEffect(() => {
@@ -91,45 +163,45 @@ const HookMqtt = () => {
         <Modal.Body>
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel X</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer X</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelX}
-                      text={`${accelX} m/s²`}
+                      value={nilai_accel_x}
+                      text={`${nilai_accel_x} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel Y</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer Y</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelY}
-                      text={`${accelY} m/s²`}
+                      value={nilai_accel_y}
+                      text={`${nilai_accel_y} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -137,29 +209,29 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Accel Z</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Accelerometer Z</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
                     <CircularProgressbar
-                      value={accelZ}
-                      text={`${accelZ} m/s²`}
+                      value={nilai_accel_z}
+                      text={`${nilai_accel_z} m/s²`}
                       styles={buildStyles({
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">pH</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Tingkat pH</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -170,12 +242,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -183,7 +255,7 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Temperature</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Suhu Air</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -194,18 +266,18 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
 
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Turbidity</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Tingkat Kekeruhan</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -216,12 +288,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: 'red',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>
@@ -229,7 +301,7 @@ const HookMqtt = () => {
 
           <div className="box-feeds row d-flex justify-content-center mx-auto">
             <div className="col-12 col-md-6 col-lg-4 mx-auto">
-              <h1 className="text-center">Kecepatan Alat</h1>
+              <h1 className="text-center" style={{ fontSize: '24px' }}>Kecepatan Alat</h1>
               <Card className="card mx-auto">
                 <Card.Body>
                   <div className="box-odometer">
@@ -240,12 +312,12 @@ const HookMqtt = () => {
                         textColor: 'black',
                         pathColor: '#2ecc71',
                         trailColor: 'black',
+                        textSize: '16px'
                       })}
                     />
                   </div>
-                  <div className="text-center mt-3">
-                    <h6>{date}</h6>
-                  </div>
+                  <br />
+                  <h6 className="text-center text-muted" style={{ fontSize: '14px' }}>{date}</h6>
                 </Card.Body>
               </Card>
             </div>

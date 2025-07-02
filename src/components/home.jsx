@@ -10,9 +10,9 @@ const home = () => {
           <div>
             <h1>SELAMAT DATANG</h1>
             <h3>PENGUKURAN DAN PREDIKSI KADAR AIR SUNGAI</h3>
-            <p>Aplikasi untuk mendeteksi dan memprediksi kadar air sungai</p>
+            <p>Aplikasi untuk memantau dan memprediksi kadar air sungai</p>
             <br />
-            <p><a href="login" className="tbl-mulai">LOGIN</a></p>
+            <p><a href="login" className="tbl-mulai">LOGIN <i className="bi bi-box-arrow-in-right" style={{ marginRight: 6, fontSize: 22 }}></i></a></p>
           </div>
         </div>
         <img src="./HERO.svg" alt="hero" />
