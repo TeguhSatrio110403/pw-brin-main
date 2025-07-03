@@ -711,7 +711,7 @@ const Dashboard = () => {
                 Perbesar Lokasi
               </button>
               
-              <button
+              {/* <button
                 onClick={(e) => {
                   e.stopPropagation(); // Mencegah event bubbling
                   if (window.confirm(`Apakah Anda yakin ingin menghapus lokasi "${location.name}"?`)) {
@@ -741,7 +741,7 @@ const Dashboard = () => {
               >
                 <i className="bi bi-trash"></i>
                 Hapus Lokasi
-              </button>
+              </button> */}
             </div>
           </div>
         </Popup>
