@@ -626,7 +626,10 @@ const DashboardAdmin = () => {
         try {
             let allAnomali = [];
             // Ambil data dari endpoint klasifikasi/all
-            const res = await axios.get(`${port}klasifikasi/all`);
+            const resPromise = axios.get(`${port}klasifikasi/all`);
+            // Tambahkan delay minimal 3 detik
+            const delayPromise = new Promise(res => setTimeout(res, 3000));
+            const [res] = await Promise.all([resPromise, delayPromise]);
             if (res.data && res.data.success && Array.isArray(res.data.data)) {
                 for (const item of res.data.data) {
                     // Struktur data mengikuti index.tsx

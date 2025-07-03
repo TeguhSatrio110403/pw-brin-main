@@ -1954,7 +1954,7 @@ const Dashboard = () => {
             {position && <RecenterAutomatically lat={position[0]} lng={position[1]} />}
             
             {/* Legend untuk marker sensor */}
-            <div style={{
+            {/* <div style={{
               position: 'absolute',
               top: '20px',
               right: '20px',
@@ -2003,7 +2003,7 @@ const Dashboard = () => {
                 }}></div>
                 <span>Kualitas Buruk</span>
               </div>
-            </div>
+            </div> */}
             
             {/* Marker untuk hasil pencarian lokasi */}
             {searchLocation && (
