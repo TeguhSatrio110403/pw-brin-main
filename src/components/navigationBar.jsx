@@ -130,16 +130,16 @@ const NavBar = () => {
               {isLoggedIn ? (
                 <>
                   <Nav.Item>
-                    <Link to="/dashboard" className="nav-link item-list">Dashboard</Link>
+                    <Link to="/dashboard" className="nav-link item-list" onClick={() => setShowNavModal(false)}>Dashboard</Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Link to="/feeds" className="nav-link item-list">Feeds</Link>
+                    <Link to="/feeds" className="nav-link item-list" onClick={() => setShowNavModal(false)}>Feeds</Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Link to="/analisis" className="nav-link item-list">Analisis</Link>
+                    <Link to="/analisis" className="nav-link item-list" onClick={() => setShowNavModal(false)}>Analisis</Link>
                   </Nav.Item>
                   <Nav.Item>
-                    <Link to="/about" className="nav-link item-list">Tentang</Link>
+                    <Link to="/about" className="nav-link item-list" onClick={() => setShowNavModal(false)}>Tentang</Link>
                   </Nav.Item>
                   
                   {/* Dropdown profil menggantikan tombol logout */}
@@ -160,6 +160,7 @@ const NavBar = () => {
                         <Dropdown.Item 
                           as={Link} 
                           to="/dashboardAdmin" 
+                          onClick={() => setShowNavModal(false)}
                         >
                           <i className="bi bi-gear-fill me-2"></i>Beranda
                         </Dropdown.Item>
@@ -170,6 +171,7 @@ const NavBar = () => {
                         <Dropdown.Item 
                           as={Link} 
                           to="/dashboardObserver" 
+                          onClick={() => setShowNavModal(false)}
                         >
                           <i className="bi bi-eye-fill me-2"></i>Beranda
                         </Dropdown.Item>
@@ -184,13 +186,14 @@ const NavBar = () => {
               ) : (
                 <>
                   <Nav.Item>
-                    <Link to="/about" className="nav-link item-list">Tentang</Link>
+                    <Link to="/about" className="nav-link item-list" onClick={() => setShowNavModal(false)}>Tentang</Link>
                   </Nav.Item>
                   <Nav className="right-section">
                     <Button
                       variant="danger"
                       href="/download"
                       className="unduh-aplikasi-button"
+                      onClick={() => setShowNavModal(false)}
                     >
                       <i className="bi bi-cloud-arrow-down" style={{ marginRight: 6, fontSize: 22 }}></i> Unduh Aplikasi
                     </Button>
@@ -223,22 +226,22 @@ const NavBar = () => {
                 </div>
                 
                 <Nav.Item>
-                  <Link to="/dashboard" className="nav-link item-list py-3">Dashboard</Link>
+                  <Link to="/dashboard" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>Dashboard</Link>
                 </Nav.Item>
                 <Nav.Item>
-                  <Link to="/feeds" className="nav-link item-list py-3">Feeds</Link>
+                  <Link to="/feeds" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>Feeds</Link>
                 </Nav.Item>
                 <Nav.Item>
-                  <Link to="/analisis" className="nav-link item-list py-3">Analisis</Link>
+                  <Link to="/analisis" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>Analisis</Link>
                 </Nav.Item>
                 <Nav.Item>
-                  <Link to="/about" className="nav-link item-list py-3">Tentang</Link>
+                  <Link to="/about" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>Tentang</Link>
                 </Nav.Item>
                 
                 {/* Tambahkan link ke Admin Dashboard jika user adalah admin */}
                 {isAdmin && (
                   <Nav.Item>
-                    <Link to="/dashboardAdmin" className="nav-link item-list py-3">
+                    <Link to="/dashboardAdmin" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>
                       <i className="bi bi-gear-fill me-2"></i>Beranda
                     </Link>
                   </Nav.Item>
@@ -247,7 +250,7 @@ const NavBar = () => {
                 {/* Link ke Observer Dashboard jika user adalah observer */}
                 {isObserver && (
                   <Nav.Item>
-                    <Link to="/dashboardObserver" className="nav-link item-list py-3">
+                    <Link to="/dashboardObserver" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>
                       <i className="bi bi-eye-fill me-2"></i>Beranda
                     </Link>
                   </Nav.Item>
@@ -269,13 +272,14 @@ const NavBar = () => {
             ) : (
               <>
                 <Nav.Item>
-                  <Link to="/about" className="nav-link item-list py-3">Tentang</Link>
+                  <Link to="/about" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>Tentang</Link>
                 </Nav.Item>
                 <div className="mt-3">
                   <Button
                     variant="danger"
                     href="/download"
                     className="btn btn-danger unduh-aplikasi-button w-100"
+                    onClick={() => setShowNavModal(false)}
                   >
                     <i className="bi bi-cloud-arrow-down"></i> Unduh Aplikasi
                   </Button>

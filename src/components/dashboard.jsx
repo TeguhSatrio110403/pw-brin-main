@@ -670,7 +670,19 @@ const Dashboard = () => {
                   <i className="bi bi-calendar-event" style={{ color: '#7f8c8d', marginRight: '8px' }}></i>
                   <div>
                     <div style={{ fontSize: '12px', color: '#666' }}>Tanggal Pencatatan</div>
-                    <div style={{ fontWeight: 'bold', color: '#333' }}>{location.date}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333' }}>
+                      {(() => {
+                        const dateObj = new Date(location.date);
+                        // Format: YYYY-MM-DD HH:mm:ss UTC
+                        const y = dateObj.getUTCFullYear();
+                        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                        const d = String(dateObj.getUTCDate()).padStart(2, '0');
+                        const hh = String(dateObj.getUTCHours()).padStart(2, '0');
+                        const mm = String(dateObj.getUTCMinutes()).padStart(2, '0');
+                        const ss = String(dateObj.getUTCSeconds()).padStart(2, '0');
+                        return `${y}-${m}-${d} ${hh}:${mm}:${ss} UTC`;
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -798,37 +810,37 @@ const Dashboard = () => {
           // Marker hijau untuk kualitas baik
           markerIcon = new L.Icon({
             iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="#2ecc71" stroke="#27ae60" stroke-width="2"/>
+              <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="14" cy="14" r="12.5" fill="#2ecc71" stroke="#27ae60" stroke-width="2"/>
               </svg>
             `),
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            popupAnchor: [0, -28]
           });
         } else if (waterQuality === "medium") {
           // Marker kuning untuk kualitas sedang
           markerIcon = new L.Icon({
             iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="#f39c12" stroke="#e67e22" stroke-width="2"/>
+              <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="14" cy="14" r="12.5" fill="#f39c12" stroke="#e67e22" stroke-width="2"/>
               </svg>
             `),
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            popupAnchor: [0, -28]
           });
         } else {
           // Marker merah untuk kualitas buruk
           markerIcon = new L.Icon({
             iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="#e74c3c" stroke="#c0392b" stroke-width="2"/>
+              <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="14" cy="14" r="12.5" fill="#e74c3c" stroke="#c0392b" stroke-width="2"/>
               </svg>
             `),
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            popupAnchor: [0, -28]
           });
         }
       
@@ -1450,7 +1462,8 @@ const Dashboard = () => {
                   gap: '15px',
                 }}
               >
-                Histori Lokasi <i 
+                {/* Histori Lokasi  */}
+                <i 
                 className="bi bi-clock-history"
                 style={{
                   fontSize: '20px',
@@ -1905,7 +1918,9 @@ const Dashboard = () => {
                       <div style={{ 
                         marginTop: '15px',
                         display: 'flex',
-                        justifyContent: 'center'
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        gap: '10px'
                       }}>
                         <button
                           onClick={() => setShowModal(true)}
@@ -1926,6 +1941,31 @@ const Dashboard = () => {
                         >
                           <i className="bi bi-plus-circle"></i>
                           Tambah Lokasi
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClickedMarker(null);
+                            setClickedLocation(null);
+                          }}
+                          style={{
+                            backgroundColor: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease',
+                            marginTop: '8px'
+                          }}
+                        >
+                          <i className="bi bi-trash"></i>
+                          Hapus Marker
                         </button>
                       </div>
                     </div>

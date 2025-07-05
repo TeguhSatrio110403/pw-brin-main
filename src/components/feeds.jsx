@@ -63,6 +63,9 @@ const Feeds = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredLocations, setFilteredLocations] = useState([]);
 
+  // State untuk modal waktu
+  const [showTimeModal, setShowTimeModal] = useState(false);
+
   const dataPerPage = 10;
 
   // Konstanta untuk rentang waktu
@@ -364,25 +367,56 @@ const Feeds = () => {
     const currentPage = currentPages[chartType] || 1;
     const hasData = sensorData[chartType].length > 0;
 
+    // Responsive: update isMobile on resize
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
+    useEffect(() => {
+      const handleResize = () => setIsMobile(window.innerWidth <= 600);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    if (isMobile) {
+      // Versi simple untuk mobile
+      return (
+        <Pagination className="justify-content-center mt-3 pagination-danger">
+          <Pagination.First
+            onClick={() => setCurrentPages((prev) => ({ ...prev, [chartType]: 1 }))}
+            disabled={!hasData || currentPage === 1}
+          />
+          <Pagination.Prev
+            onClick={() => handlePageChange(chartType, "prev")}
+            disabled={!hasData || currentPage === 1}
+          />
+          <span style={{ margin: '0 8px', alignSelf: 'center', fontWeight: 500 }}>
+            {currentPage} of {totalPages}
+          </span>
+          <Pagination.Next
+            onClick={() => handlePageChange(chartType, "next")}
+            disabled={!hasData || currentPage === totalPages}
+          />
+          <Pagination.Last
+            onClick={() => setCurrentPages((prev) => ({ ...prev, [chartType]: totalPages }))}
+            disabled={!hasData || currentPage === totalPages}
+          />
+        </Pagination>
+      );
+    }
+
+    // Versi lengkap untuk desktop
     const getPageNumbers = () => {
       if (totalPages <= 1) return [1];
-      
       const delta = 2;
       const range = [1];
-
       for (let i = currentPage - delta; i <= currentPage + delta; i++) {
         if (i > 1 && i < totalPages) {
           range.push(i);
         }
       }
-
       if (totalPages > 1) {
         range.push(totalPages);
       }
-
       const rangeWithDots = [];
       let prev = 0;
-      
       for (const i of range) {
         if (prev + 1 < i) {
           rangeWithDots.push("...");
@@ -390,7 +424,6 @@ const Feeds = () => {
         rangeWithDots.push(i);
         prev = i;
       }
-
       return rangeWithDots;
     };
 
@@ -404,7 +437,6 @@ const Feeds = () => {
           onClick={() => handlePageChange(chartType, "prev")}
           disabled={!hasData || currentPage === 1}
         />
-
         {getPageNumbers().map((page, index) =>
           page === "..." ? (
             <Pagination.Ellipsis key={`ellipsis-${index}`} />
@@ -418,7 +450,6 @@ const Feeds = () => {
             </Pagination.Item>
           )
         )}
-
         <Pagination.Next
           onClick={() => handlePageChange(chartType, "next")}
           disabled={!hasData || currentPage === totalPages}
@@ -483,12 +514,12 @@ const Feeds = () => {
           //   text: 'pH Level'
           // }
         },
-        x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
-        }
+        // x: {
+        //   title: {
+        //     display: true,
+        //     text: 'Waktu'
+        //   }
+        // }
       },
     },
     temperature: {
@@ -508,12 +539,12 @@ const Feeds = () => {
           //   text: 'Suhu (°C)'
           // }
         },
-        x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
-        }
+        // x: {
+        //   title: {
+        //     display: true,
+        //     text: 'Waktu'
+        //   }
+        // }
       },
     },
     turbidity: {
@@ -533,12 +564,12 @@ const Feeds = () => {
           //   text: 'Kekeruhan (NTU)'
           // }
         },
-        x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
-        }
+        // x: {
+        //   title: {
+        //     display: true,
+        //     text: 'Waktu'
+        //   }
+        // }
       },
     },
     acceleration: {
@@ -558,12 +589,12 @@ const Feeds = () => {
           //   text: 'Percepatan (m/s²)'
           // }
         },
-        x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
-        }
+        // x: {
+        //   title: {
+        //     display: true,
+        //     text: 'Waktu'
+        //   }
+        // }
       },
     },
     speed: {
@@ -583,12 +614,12 @@ const Feeds = () => {
           //   text: 'Kecepatan (m/s)'
           // }
         },
-        x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
-        }
+        // x: {
+        //   title: {
+        //     display: true,
+        //     text: 'Waktu'
+        //   }
+        // }
       },
     },
   };
@@ -747,129 +778,111 @@ const Feeds = () => {
     <div className="analisis-container">
       {/* <h1 className="analisis-title">Statistik Data Langsung</h1> */}
       
-      <div className="mb-4 d-flex justify-content-between align-items-center">
-        <div className="d-flex gap-3">
+      <div className="mb-4 d-flex justify-content-between align-items-center feeds-toolbar-responsive">
+        <div className="d-flex gap-3 feeds-toolbar-btn-group">
           <Button 
             variant="outline-danger" 
             onClick={() => setShowModal(true)}
             style={{ 
-              minWidth: '200px',
-              height: '38px',
+              minWidth: '120px',
+              height: '32px',
+              fontSize: '13px',
+              padding: '0 10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '6px',
               borderWidth: '1px',
               borderColor: '#dc3545',
               color: '#dc3545',
               backgroundColor: 'transparent',
               transition: 'all 0.2s ease-in-out'
             }}
-            className="hover-effect"
+            className="hover-effect feeds-toolbar-btn"
           >
-            <BsGeoAlt style={{ fontSize: '16px' }} />
+            <BsGeoAlt style={{ fontSize: '14px' }} />
             {selectedLocation === "semua" 
               ? "Semua Lokasi" 
               : locations.find(loc => loc.id_lokasi === selectedLocation)?.nama_sungai || "Pilih Lokasi"}
           </Button>
 
-          <div style={{ position: 'relative' }}>
-            <Form.Select
-              id="timeRangeSelect"
-              name="timeRangeSelect"
-              value={selectedTimeRange}
-              onChange={(e) => setSelectedTimeRange(e.target.value)}
-              style={{ 
-                minWidth: '200px',
-                height: '38px',
-                borderColor: '#dc3545',
-                color: '#dc3545',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                paddingLeft: '40px'
-              }}
-              className="border-danger custom-select"
-              aria-label="Pilih rentang waktu"
-            >
-              {TIME_RANGES.map((range) => (
-                <option key={range.value} value={range.value}>
-                  {range.label}
-                </option>
-              ))}
-            </Form.Select>
-            <BsClock 
-              style={{ 
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '16px',
-                color: '#dc3545',
-                pointerEvents: 'none'
-              }} 
-            />
-          </div>
+          {/* Tombol untuk memilih waktu (modal) */}
+          <Button
+            variant="outline-danger"
+            onClick={() => setShowTimeModal(true)}
+            style={{ minWidth: '120px', height: '32px', fontSize: '13px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderWidth: '1px', borderColor: '#dc3545', color: '#dc3545', backgroundColor: 'transparent', transition: 'all 0.2s ease-in-out' }}
+            className="hover-effect feeds-toolbar-btn"
+          >
+            <BsClock style={{ fontSize: '14px' }} />
+            {TIME_RANGES.find(r => r.value === selectedTimeRange)?.label || "Pilih Waktu"}
+          </Button>
 
           <Button 
             variant="outline-danger" 
             onClick={handleDownload}
             disabled={isLoading}
             style={{ 
-              minWidth: '150px',
-              height: '38px',
+              minWidth: '90px',
+              height: '32px',
+              fontSize: '13px',
+              padding: '0 10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '6px',
               borderWidth: '1px',
               borderColor: '#dc3545',
               color: '#dc3545',
               backgroundColor: 'transparent',
               transition: 'all 0.2s ease-in-out'
             }}
-            className="hover-effect"
+            className="hover-effect feeds-toolbar-btn"
           >
-            <FaDownload style={{ fontSize: '16px' }} />
-            {isLoading ? 'Mengunduh...' : 'Unduh CSV'}
+            <FaDownload style={{ fontSize: '14px' }} />
+            {isLoading ? 'Unduh...' : 'Unduh CSV'}
           </Button>
         </div>
       </div>
 
       <style>
         {`
-          .hover-effect:hover {
-            background-color: #dc3545 !important;
-            color: white !important;
+          .feeds-toolbar-responsive {
+            flex-wrap: wrap;
+            gap: 8px;
           }
-          
-          .hover-effect:hover svg {
-            color: white !important;
+          .feeds-toolbar-btn-group {
+            flex-wrap: wrap;
+            gap: 8px;
           }
-          
-          .custom-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23dc3545' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-            padding-right: 32px;
+          .feeds-toolbar-btn {
+            margin-bottom: 6px;
           }
-
-          .custom-select:focus {
-            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
-            border-color: #dc3545;
+          @media (max-width: 600px) {
+            .feeds-toolbar-responsive {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 8px !important;
+            }
+            .feeds-toolbar-btn-group {
+              flex-direction: row !important;
+              flex-wrap: wrap !important;
+              gap: 6px !important;
+              justify-content: flex-start !important;
+            }
+            .feeds-toolbar-btn {
+              min-width: 90px !important;
+              height: 28px !important;
+              font-size: 12px !important;
+              padding: 0 6px !important;
+              margin-bottom: 4px !important;
           }
-
-          .custom-select option {
-            background-color: white;
-            color: #212529;
-          }
-
-          .custom-select option:checked {
-            background-color: #dc3545;
-            color: white;
+            .custom-select {
+              min-width: 90px !important;
+              height: 28px !important;
+              font-size: 12px !important;
+              padding-left: 28px !important;
+              padding-right: 10px !important;
+            }
           }
         `}
       </style>
@@ -991,6 +1004,37 @@ const Feeds = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal untuk memilih waktu */}
+      <Modal
+        show={showTimeModal}
+        onHide={() => setShowTimeModal(false)}
+        centered
+        size="sm"
+        className="feeds-time-modal"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Pilih Rentang Waktu</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="d-flex flex-column gap-2">
+            {TIME_RANGES.map(range => (
+              <Button
+                key={range.value}
+                variant={selectedTimeRange === range.value ? "danger" : "outline-danger"}
+                size="sm"
+                style={{ borderRadius: '8px', fontWeight: 'bold' }}
+                onClick={() => {
+                  setSelectedTimeRange(range.value);
+                  setShowTimeModal(false);
+                }}
+              >
+                {range.label}
+              </Button>
+            ))}
           </div>
         </Modal.Body>
       </Modal>

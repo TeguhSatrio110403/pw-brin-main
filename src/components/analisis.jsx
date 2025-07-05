@@ -101,10 +101,10 @@ const Analisis = () => {
             }}>
               <i className="bi bi-search search-icon" style={{
                 position: 'absolute',
-                left: '12px',
-                top: '50%',
+                left: '18px',
+                top: '55%',
                 transform: 'translateY(-50%)',
-                color: '#666'
+                color: 'rgb(102, 102, 102)'
               }}></i>
               <label htmlFor="sungai-search" className="visually-hidden">Cari sungai</label>
               <input
@@ -115,12 +115,12 @@ const Analisis = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 id="sungai-search"
                 style={{
-                  width: '100%',
-                  padding: '8px 720px 8px 50px',
+                  width: '960px',
+                  padding: '8px 16px 8px 50px',
                   borderRadius: '100px',
                   border: '1px solid #ddd',
                   fontSize: '16px',
-                  Marginleft: '5px'
+                  marginLeft: '5px'
                 }}
               />
             </div>
@@ -307,6 +307,21 @@ const Analisis = () => {
           overflow: hidden;
           clip: rect(0, 0, 0, 0);
           border: 0;
+        }
+        
+        @media (max-width: 480px) {
+          .controls-section {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .search-input-wrapper {
+            margin-right: 0 !important;
+          }
+          .search-input {
+            width: 960px !important;
+            padding: 8px 16px 8px 50px !important;
+            font-size: 15px !important;
+          }
         }
         
         .feeds-grid {

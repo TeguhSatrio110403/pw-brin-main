@@ -20,7 +20,8 @@ import {
     App,
     Spin,
     Tag,
-    Select as AntdSelect
+    Select as AntdSelect,
+    Modal as AntdModal
 } from 'antd';
 import {
     DashboardOutlined,
@@ -104,9 +105,12 @@ const getAnomalyDetail = (data, type) => {
         return {
             value,
             isAnomaly: true,
-            message: threshold.min !== null && value < threshold.min
-                ? `Terlalu rendah (< ${threshold.min})`
-                : `Terlalu tinggi (> ${threshold.max})`
+            message:
+                (threshold.min !== null && value < threshold.min)
+                    ? `Terlalu rendah (${value} < ${threshold.min ?? '-'})`
+                    : (threshold.max !== null && value > threshold.max)
+                        ? `Terlalu tinggi (${value} > ${threshold.max ?? '-'})`
+                        : 'Anomali'
         };
     }
     return { value, isAnomaly: false, message: "Normal" };
@@ -152,13 +156,6 @@ const DashboardAdmin = () => {
     });
     const [sortOrder, setSortOrder] = useState('desc');
     const [searchText, setSearchText] = useState('');
-    const [users, setUsers] = useState([]);
-    const [filteredUsers, setFilteredUsers] = useState([]);
-    const [isUserModalVisible, setIsUserModalVisible] = useState(false);
-    const [userForm] = Form.useForm();
-    const [editingUserId, setEditingUserId] = useState(null);
-    const [userLoading, setUserLoading] = useState(false);
-    const [userSearchText, setUserSearchText] = useState('');
     const [anomaliData, setAnomaliData] = useState([]);
     const [filteredAnomali, setFilteredAnomali] = useState([]);
     const [anomaliLocations, setAnomaliLocations] = useState(['Semua Lokasi']);
@@ -183,25 +180,23 @@ const DashboardAdmin = () => {
     const [isAddingLocation, setIsAddingLocation] = useState(false);
     // Tambahkan state untuk loading saat menyimpan data
     const [isSavingData, setIsSavingData] = useState(false);
+    // Tambahkan state untuk pagination lokasi
+    const [locationCurrentPage, setLocationCurrentPage] = useState(1);
+    const locationPageSize = 10;
 
     const menuItems = [
         {
-            key: 'dashboard',
-            icon: <DashboardOutlined />,
-            label: 'Dashboard',
-        },
-        {
-            key: 'lokasi',
-            icon: <EnvironmentOutlined />,
-            label: 'Lokasi',
-        },
-        {
             key: 'anomali',
             icon: <ExclamationCircleOutlined />,
-            label: 'Anomali',
+            label: 'Anomali Sensor',
         },
         {
-            key: 'statistik',
+            key: 'locations',
+            icon: <EnvironmentOutlined />,
+            label: 'Lokasi Penelitian',
+        },
+        {
+            key: 'statistics',
             icon: <BarChartOutlined />,
             label: 'Statistik',
         }
@@ -225,13 +220,13 @@ const DashboardAdmin = () => {
 
     const fetchData = async () => {
         try {
-            console.log('Starting fetchData for:', activeMenu);
+            // console.log('Starting fetchData for:', activeMenu);
             setLoading(true);
 
             // Always fetch location data first
             console.log('Fetching locations data...');
             const locationsResponse = await axios.get(`${port}data_lokasi`);
-            console.log('Raw locations response:', locationsResponse);
+            // console.log('Raw locations response:', locationsResponse);
 
             if (locationsResponse.data) {
                 const formattedData = locationsResponse.data.map(item => ({
@@ -242,7 +237,7 @@ const DashboardAdmin = () => {
                     date: item.tanggal,
                     rawDate: new Date(item.tanggal)
                 }));
-                console.log('Formatted locations:', formattedData);
+                // console.log('Formatted locations:', formattedData);
                 setLocations(formattedData);
                 setFilteredLocations(formattedData);
             }
@@ -356,7 +351,15 @@ const DashboardAdmin = () => {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = (id) => {
+        AntdModal.confirm({
+            title: 'Yakin hapus data lokasi?',
+            icon: <ExclamationCircleOutlined />,
+            content: 'Data lokasi yang dihapus tidak bisa dikembalikan.',
+            okText: 'Hapus',
+            okType: 'danger',
+            cancelText: 'Batal',
+            onOk: async () => {
         try {
             await axios.delete(`${port}${activeMenu}/${id}`);
             message.success('Data berhasil dihapus');
@@ -364,6 +367,8 @@ const DashboardAdmin = () => {
         } catch (error) {
             message.error('Gagal menghapus data');
         }
+            },
+        });
     };
 
     const handleSearch = (value) => {
@@ -506,100 +511,15 @@ const DashboardAdmin = () => {
         }
     ];
 
-    const fetchUsers = async () => {
-        setUserLoading(true);
-        try {
-            const res = await axios.get(`${port}users`);
-            if (res.data && res.data.users) {
-                setUsers(res.data.users);
-                setFilteredUsers(res.data.users);
-            }
-        } catch (err) {
-            message.error('Gagal mengambil data user');
-        } finally {
-            setUserLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (activeMenu === 'users') {
-            fetchUsers();
-        }
-    }, [activeMenu]);
-
-    const showUserModal = (record = null) => {
-        if (record) {
-            userForm.setFieldsValue(record);
-            setEditingUserId(record.id);
-        } else {
-            userForm.resetFields();
-            setEditingUserId(null);
-        }
-        setIsUserModalVisible(true);
-    };
-
-    const handleUserCancel = () => {
-        setIsUserModalVisible(false);
-        userForm.resetFields();
-        setEditingUserId(null);
-    };
-
-    const handleUserSubmit = async (values) => {
-        setUserLoading(true);
-        try {
-            if (editingUserId) {
-                await axios.put(`${port}users/${editingUserId}`, values);
-                message.success('User berhasil diperbarui');
-            } else {
-                await axios.post(`${port}users`, values);
-                message.success('User berhasil ditambahkan');
-            }
-            handleUserCancel();
-            fetchUsers();
-        } catch (err) {
-            message.error('Gagal menyimpan user');
-        } finally {
-            setUserLoading(false);
-        }
-    };
-
-    const handleUserDelete = async (id) => {
-        setUserLoading(true);
-        try {
-            await axios.delete(`${port}users/${id}`);
-            message.success('User berhasil dihapus');
-            fetchUsers();
-        } catch (err) {
-            message.error('Gagal menghapus user');
-        } finally {
-            setUserLoading(false);
-        }
-    };
-
-    const handleUserSearch = (value) => {
-        setUserSearchText(value);
-        const filtered = users.filter(
-            (item) =>
-                item.username.toLowerCase().includes(value.toLowerCase()) ||
-                item.email.toLowerCase().includes(value.toLowerCase())
-        );
-        setFilteredUsers(filtered);
-    };
-
-    useEffect(() => {
-        if (userSearchText) {
-            handleUserSearch(userSearchText);
-        } else {
-            setFilteredUsers(users);
-        }
-    }, [users, userSearchText]);
-
     const fetchAnomaliData = async () => {
         setAnomaliLoading(true);
         try {
             let allAnomali = [];
             // Ambil data dari endpoint klasifikasi/all
-            const res = await axios.get(`${port}klasifikasi/all`);
+            const resPromise = axios.get(`${port}klasifikasi/all`);
+            // Tambahkan delay minimal 3 detik
+            const delayPromise = new Promise(res => setTimeout(res, 3000));
+            const [res] = await Promise.all([resPromise, delayPromise]);
             if (res.data && res.data.success && Array.isArray(res.data.data)) {
                 for (const item of res.data.data) {
                     // Struktur data mengikuti index.tsx
@@ -675,10 +595,10 @@ const DashboardAdmin = () => {
                     <ExclamationCircleOutlined style={{ color: '#E62F2A', marginRight: 8 }} />
                     <span style={{ color: '#E62F2A' }}>{label}</span>
                     <Tag
-                        color={label === 'Turbidity' ? '#5a2283' : (label === 'pH' ? '#715099' : '#e6a72a')} // Colors based on image
+                        color={label === 'Turbidity' ? '#5a2283' : (label === 'pH' ? '#715099' : '#e6a72a')}
                         style={{ marginLeft: 'auto', borderRadius: '4px', padding: '4px 8px' }}
                     >
-                        Terlalu Tinggi {data.threshold ? `(${data.threshold})` : ''} ({data.value})
+                        {data.message}
                     </Tag>
                 </div>
             );
@@ -704,11 +624,11 @@ const DashboardAdmin = () => {
         setShowDetailAnomali(false);
         setSelectedAnomali(null);
         setSelectedLokasi(null);
-        message.success('Data anomali dihapus (dummy)');
+        // message.success('Data anomali dihapus (dummy)');
     };
 
     const handleUpdateDetail = () => {
-        message.info('Update parameter & prediksi (dummy)');
+        fetchAnomaliData();
     };
 
     // Fungsi untuk handle tambah lokasi dengan loading
@@ -763,6 +683,19 @@ const DashboardAdmin = () => {
         setAnomaliCurrentPage(1);
     }, [filterKategori, selectedAnomaliLocation]);
 
+    // Tambahkan useMemo untuk data lokasi yang dipaginate
+    const paginatedLocations = useMemo(() => {
+        const data = filteredLocations.length > 0 ? filteredLocations : locations;
+        const startIndex = (locationCurrentPage - 1) * locationPageSize;
+        const endIndex = startIndex + locationPageSize;
+        return data.slice(startIndex, endIndex);
+    }, [filteredLocations, locations, locationCurrentPage]);
+
+    // Reset halaman saat filter/search berubah
+    useEffect(() => {
+        setLocationCurrentPage(1);
+    }, [filteredLocations, locations, searchText]);
+
     const renderContent = () => {
         switch (activeMenu) {
             case 'locations':
@@ -805,7 +738,7 @@ const DashboardAdmin = () => {
                             />
                         </div>
                         <Row gutter={[16, 16]}>
-                            {(filteredLocations.length > 0 ? filteredLocations : locations).map((location) => (
+                            {paginatedLocations.map((location) => (
                                 <Col xs={24} sm={12} md={8} lg={6} key={`location-${location.id}`}>
                                     <Card
                                         hoverable
@@ -867,130 +800,57 @@ const DashboardAdmin = () => {
                                 </Col>
                             ))}
                         </Row>
-                    </>
-                );
-            case 'users':
-                return (
-                    <>
-                        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Space>
+                        {/* Pagination untuk lokasi */}
+                        {(filteredLocations.length > 0 ? filteredLocations : locations).length > locationPageSize && (
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                marginTop: 24,
+                                gap: 8
+                            }}>
                                 <Button
-                                    type="primary"
-                                    icon={<PlusOutlined />}
-                                    onClick={() => showUserModal()}
-                                    style={{ borderRadius: '100px' }}
+                                    size="small"
+                                    style={{ borderRadius: 8 }}
+                                    onClick={() => setLocationCurrentPage(1)}
+                                    disabled={locationCurrentPage === 1}
                                 >
-                                    Tambah User
+                                    Awal
                                 </Button>
-                            </Space>
-                            <Search
-                                id="user-search"
-                                name="user-search"
-                                placeholder="Cari user..."
-                                allowClear
-                                enterButton={<SearchOutlined />}
-                                onSearch={handleUserSearch}
-                                onChange={(e) => handleUserSearch(e.target.value)}
-                                style={{ width: 300, borderRadius: '100px' }}
-                                aria-label="Cari user"
-                            />
-                        </div>
-                        <Table
-                            dataSource={filteredUsers}
-                            rowKey="id"
-                            loading={userLoading}
-                            columns={[
-                                { title: 'ID', dataIndex: 'id', key: 'id' },
-                                { title: 'Username', dataIndex: 'username', key: 'username' },
-                                { title: 'Email', dataIndex: 'email', key: 'email' },
-                                { title: 'Role', dataIndex: 'role', key: 'role' },
-                                {
-                                    title: 'Last Login',
-                                    dataIndex: 'last_login',
-                                    key: 'last_login',
-                                    render: (val) => {
-                                        if (!val) return '-';
-                                        const d = new Date(val);
-                                        return d.toLocaleDateString('id-ID', {
-                                            year: 'numeric',
-                                            month: '2-digit',
-                                            day: '2-digit'
-                                        });
-                                    }
-                                },
-                                {
-                                    title: 'Aksi',
-                                    key: 'aksi',
-                                    render: (_, record) => (
-                                        <Space>
-                                            <Button icon={<EditOutlined />} onClick={() => showUserModal(record)} style={{ color: '#E62F2A', borderColor: '#E62F2A' }} />
-                                            <Button icon={<DeleteOutlined />} danger onClick={() => handleUserDelete(record.id)} />
-                                        </Space>
-                                    ),
-                                },
-                            ]}
-                            pagination={{ pageSize: 8 }}
-                        />
-                        <Modal
-                            title={editingUserId ? 'Edit User' : 'Tambah User'}
-                            open={isUserModalVisible}
-                            onCancel={handleUserCancel}
-                            footer={null}
-                            id="modal-user-form"
-                        >
-                            <Form
-                                form={userForm}
-                                onFinish={handleUserSubmit}
-                                layout="vertical"
-                                id="form-user-container"
-                                name="form-user-container"
-                            >
-                                <Form.Item
-                                    name="username"
-                                    label={<label htmlFor="user-username-input">Username</label>}
-                                    rules={[{ required: true, message: 'Username harus diisi' }]}
+                                <Button
+                                    size="small"
+                                    style={{ borderRadius: 8 }}
+                                    onClick={() => setLocationCurrentPage(Math.max(1, locationCurrentPage - 1))}
+                                    disabled={locationCurrentPage === 1}
                                 >
-                                    <Input id="user-username-input" name="user-username" autoComplete="off" />
-                                </Form.Item>
-                                <Form.Item
-                                    name="email"
-                                    label={<label htmlFor="user-email-input">Email</label>}
-                                    rules={[{ required: true, message: 'Email harus diisi' }]}
+                                    Sebelumnya
+                                </Button>
+                                <span style={{
+                                    margin: '0 16px',
+                                    alignSelf: 'center',
+                                    color: '#666',
+                                    fontWeight: '500'
+                                }}>
+                                    Halaman {locationCurrentPage} dari {Math.ceil((filteredLocations.length > 0 ? filteredLocations : locations).length / locationPageSize)}
+                                </span>
+                                <Button
+                                    size="small"
+                                    style={{ borderRadius: 8 }}
+                                    onClick={() => setLocationCurrentPage(Math.min(Math.ceil((filteredLocations.length > 0 ? filteredLocations : locations).length / locationPageSize), locationCurrentPage + 1))}
+                                    disabled={locationCurrentPage === Math.ceil((filteredLocations.length > 0 ? filteredLocations : locations).length / locationPageSize)}
                                 >
-                                    <Input id="user-email-input" name="user-email" autoComplete="off" />
-                                </Form.Item>
-                                <Form.Item
-                                    name="role"
-                                    label={<label htmlFor="user-role-input">Role</label>}
-                                    rules={[{ required: true, message: 'Role harus diisi' }]}
+                                    Berikutnya
+                                </Button>
+                                <Button
+                                    size="small"
+                                    style={{ borderRadius: 8 }}
+                                    onClick={() => setLocationCurrentPage(Math.ceil((filteredLocations.length > 0 ? filteredLocations : locations).length / locationPageSize))}
+                                    disabled={locationCurrentPage === Math.ceil((filteredLocations.length > 0 ? filteredLocations : locations).length / locationPageSize)}
                                 >
-                                    <Select id="user-role-input" name="user-role" options={[
-                                        { value: 'admin', label: 'Admin' },
-                                        { value: 'pengamat', label: 'Pengamat' },
-                                    ]} />
-                                </Form.Item>
-                                <Form.Item
-                                    name="password"
-                                    label={<label htmlFor="user-password-input">Password</label>}
-                                    rules={editingUserId ? [] : [{ required: true, message: 'Password harus diisi' }]}
-                                >
-                                    <Input.Password id="user-password-input" name="user-password" autoComplete="new-password" />
-                                </Form.Item>
-                                <Form.Item>
-                                    <Button 
-                                        type="primary" 
-                                        htmlType="submit" 
-                                        loading={userLoading}
-                                        disabled={userLoading}
-                                        style={{ borderRadius: '100px' }} 
-                                        id="submit-user-button" 
-                                        name="submit-user-button"
-                                    >
-                                        {userLoading ? 'Menyimpan...' : (editingUserId ? 'Update' : 'Simpan')}
-                                    </Button>
-                                </Form.Item>
-                            </Form>
-                        </Modal>
+                                    Akhir
+                                </Button>
+                            </div>
+                        )}
                     </>
                 );
             case 'anomali':
@@ -1084,7 +944,7 @@ const DashboardAdmin = () => {
                                                 </Tag>
                                                 {/* pH */}
                                                 <Tag color={item.pH.isAnomaly ? '#F7E6EB' : '#E6F7E6'} style={{ color: item.pH.isAnomaly ? '#E62F2A' : '#52c41a', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <i className="material-symbols-outlined" style={{ fontSize: 28 }}>experiment</i>
+                                                    <i className="material-symbols-outlined" style={{ fontSize: 22 }}>experiment</i>
                                                     pH: {item.pH.value} {item.pH.isAnomaly ? (item.pH.threshold ? `(Anomali ${item.pH.threshold})` : '(Anomali)') : '(Normal)'}
                                                 </Tag>
                                                 {/* Temperature */}
@@ -1099,8 +959,12 @@ const DashboardAdmin = () => {
                                                 {renderAnomalyDetail('Temperature', item.temperature)}
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-                                                <Button type="link" style={{ padding: 0, color: '#E62F2A' }} onClick={() => handleLihatDetail(item)}>Lihat Detail</Button>
-                                                <DeleteOutlined style={{ color: '#999', fontSize: 18, cursor: 'pointer' }} />
+                                                <Button type="link" style={{ padding: 0, color: '#1890ff' }} onClick={() => handleLihatDetail(item)}>Lihat Detail</Button>
+                                                <Button
+                                                    icon={<DeleteOutlined />}
+                                                    danger
+                                                    onClick={() => handleDeleteAnomali(item.id)}
+                                                />
                                             </div>
                                         </Card>
                                     </Col>
@@ -1230,7 +1094,7 @@ const DashboardAdmin = () => {
                                         color="#1890ff"
                                     />
                                     <StatMiniCard
-                                        icon={<i className="material-symbols-outlined" style={{ fontSize: 28 }}>experiment</i>}
+                                        icon={<i className="material-symbols-outlined" style={{ fontSize: 22 }}>experiment</i>}
                                         title="pH"
                                         value={formatOneDecimal((selectedStatLocation ? statData[0]?.nilai_ph : allStatData[0]?.nilai_ph))}
                                         avg={getSummary(selectedStatLocation ? statData : allStatData, 'nilai_ph').avg}
@@ -1370,6 +1234,27 @@ const DashboardAdmin = () => {
         return null;
     }, [form.getFieldValue('lat'), form.getFieldValue('lon'), isModalVisible]);
 
+    // Tambahkan fungsi hapus anomali dengan konfirmasi
+    const handleDeleteAnomali = (anomaliId) => {
+        AntdModal.confirm({
+            title: 'Yakin hapus data?',
+            icon: <ExclamationCircleOutlined />,
+            content: 'Data yang dihapus tidak bisa dikembalikan.',
+            okText: 'Hapus',
+            okType: 'danger',
+            cancelText: 'Batal',
+            onOk: async () => {
+                try {
+                    await axios.delete(`${port}klasifikasi/${anomaliId}`);
+                    message.success('Data anomali berhasil dihapus');
+                    fetchAnomaliData();
+                } catch (err) {
+                    message.error('Gagal menghapus data anomali');
+                }
+            },
+        });
+    };
+
     return (
         <div className="d-flex">
             {(initialLoading || loading) && <LoadingOverlay />}
@@ -1412,14 +1297,25 @@ const DashboardAdmin = () => {
                     >
                         <div className="offcanvas-header mb-3">
                             <div className="offcanvas-title" id="offcanvasScrollingLabel">
-                                <img src="./logo.png" alt="Logo" className="logo"
-                                    style={{
-                                        width: '190px',
-                                        height: 'auto'
-                                    }}
-                                />
+                                {/* Tulisan Beranda */}
+                                <span style={{ fontWeight: 'bold', fontSize: 32, color: '#E62F2A', letterSpacing: 1 }}>Beranda</span>
+                                {/* Hanya subteks deskripsi, tanpa garis animasi */}
+                                <div style={{ marginTop: 8, marginBottom: 8 }}>
+                                    <div style={{ color: '#888', fontSize: 14, textAlign: 'left', fontWeight: 300 }}>
+                                        Kelola semua parameter kualitas air dalam satu tempat
+                            </div>
+                                    <div>
+                                        <hr />
+                        </div>
+                                </div>
                             </div>
                         </div>
+                        <style>{`
+                        @keyframes slideBar {
+                          0% { width: 40px; background: #E62F2A; }
+                          100% { width: 80px; background: linear-gradient(90deg, #E62F2A 60%, #fff1f0 100%); }
+                        }
+                        `}</style>
                         <div className="offcanvas-body p-0">
                             <div className="list-group list-group-flush">
                                 {menuItems.map(item => (
@@ -1463,7 +1359,9 @@ const DashboardAdmin = () => {
                         footer={null}
                         id="modal-form"
                         width={800} // Lebarkan modal
-                        bodyStyle={{ paddingBottom: 0 }}
+                        styles={{
+                            body: { paddingBottom: 0 }
+                        }}
                     >
                         <Form
                             form={form}
@@ -1472,7 +1370,7 @@ const DashboardAdmin = () => {
                             id="form-container"
                             name="form-container"
                         >
-                            {editingId && (
+                            {/* {editingId && (
                               <div style={{ 
                                 marginBottom: 16, 
                                 padding: 12, 
@@ -1485,7 +1383,7 @@ const DashboardAdmin = () => {
                                 <i className="bi bi-pencil-square" style={{ marginRight: 6, color: '#fa8c16' }}></i>
                                 Mode Edit: Semua data dapat diubah secara manual.
                               </div>
-                            )}
+                            )} */}
                             {/* MAPS UNTUK PILIH TITIK LOKASI, hanya tampil saat tambah lokasi */}
                             {!editingId && (
                               <div style={{ marginBottom: 16 }}>
@@ -1703,7 +1601,7 @@ const DashboardAdmin = () => {
 const StatMiniCard = ({ icon, title, value, avg, min, max, color }) => (
     <Card style={{ width: 200, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 28, color, marginRight: 12 }}>{icon}</span>
+            <span style={{ fontSize: 22, color, marginRight: 12 }}>{icon}</span>
             <span style={{ fontWeight: 600 }}>{title}</span>
         </div>
         <Statistic value={value} style={{ marginBottom: 8 }} />
