@@ -265,16 +265,20 @@ const Dashboard = () => {
   // Fungsi pembuatan popup sensor dengan status kualitas air
   const createSensorPopup = (properties) => {
     const tanggal = new Date(properties.tanggal || new Date());
-    const options = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Jakarta',
-      timeZoneName: 'short'
-    };
+    // Hari dan bulan manual Indonesia, waktu UTC
+    const hariList = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const bulanList = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const hari = hariList[tanggal.getUTCDay()];
+    const tgl = tanggal.getUTCDate();
+    const bulan = bulanList[tanggal.getUTCMonth()];
+    const tahun = tanggal.getUTCFullYear();
+    const jam = String(tanggal.getUTCHours()).padStart(2, '0');
+    const menit = String(tanggal.getUTCMinutes()).padStart(2, '0');
+    const detik = String(tanggal.getUTCSeconds()).padStart(2, '0');
+    const tanggalString = `${hari}, ${tgl} ${bulan} ${tahun} ${jam}:${menit}:${detik} UTC`;
 
     // Ensure valid numbers with fallbacks
     const ph = isNaN(parseFloat(properties.nilai_ph)) ? 0 : parseFloat(properties.nilai_ph);
@@ -317,7 +321,7 @@ const Dashboard = () => {
         <div style="background-color: white; padding: 15px; border-bottom: 1px solid #eee;">
           <div style="margin-bottom: 10px; font-weight: 500; color: #555;">
             <span style="color: #777; font-size: 13px;">WAKTU PENGAMBILAN</span><br>
-            <span style="font-size: 15px;">${tanggal.toLocaleDateString('id-ID', options)}</span>
+            <span style="font-size: 15px;">${tanggalString}</span>
           </div>
         </div>
         
@@ -1462,7 +1466,7 @@ const Dashboard = () => {
                   gap: '15px',
                 }}
               >
-                {/* Histori Lokasi  */}
+                Histori Lokasi 
                 <i 
                 className="bi bi-clock-history"
                 style={{

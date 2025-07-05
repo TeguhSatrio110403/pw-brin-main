@@ -153,8 +153,8 @@ const HookMqtt = ({ latestData, onIotPositionChange }) => {
   return (
     <>
       <button className="btn-mulaibaru" onClick={handleShow}>
-        {/* Data Langsung <i className="bi bi-speedometer speedometer-icon"></i> */}
-        <i className="bi bi-speedometer speedometer-icon"></i>
+        Data Langsung <i className="bi bi-speedometer speedometer-icon"></i>
+        {/* <i className="bi bi-speedometer speedometer-icon"></i> */}
       </button>
 
       <Modal show={showModal} onHide={handleClose} size="lg" aria-labelledby="contained-modal-title-vcenter" centered>
