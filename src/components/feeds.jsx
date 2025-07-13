@@ -57,8 +57,7 @@ const Feeds = () => {
 
   // State untuk loading
   const [isLoading, setIsLoading] = useState(false);
-
-  // State untuk modal dan search
+  const [isDownloading, setIsDownloading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredLocations, setFilteredLocations] = useState([]);
@@ -66,7 +65,8 @@ const Feeds = () => {
   // State untuk modal waktu
   const [showTimeModal, setShowTimeModal] = useState(false);
 
-  const dataPerPage = 10;
+  // State untuk jumlah data per halaman (selalu 100)
+  const [dataPerPage] = useState(100);
 
   // Konstanta untuk rentang waktu
   const TIME_RANGES = [
@@ -226,16 +226,14 @@ const Feeds = () => {
         const formattedData = result.data
           .map(item => {
             const date = new Date(item.tanggal);
-            const formattedDate = date.toLocaleString('id-ID', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false
-            });
-
+            const tgl = String(date.getUTCDate()).padStart(2, '0');
+            const bln = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const thn = date.getUTCFullYear();
+            const jam = String(date.getUTCHours()).padStart(2, '0');
+            const menit = String(date.getUTCMinutes()).padStart(2, '0');
+            const detik = String(date.getUTCSeconds()).padStart(2, '0');
+            const tanggalStr = `${tgl}/${bln}/${thn}`;
+            const jamStr = `${jam}:${menit}:${detik} WIB`;
             return {
               accel_x: parseFloat(item.nilai_accel_x) || 0,
               accel_y: parseFloat(item.nilai_accel_y) || 0,
@@ -244,7 +242,8 @@ const Feeds = () => {
               temperature: parseFloat(item.nilai_temperature) || 0,
               turbidity: parseFloat(item.nilai_turbidity) || 0,
               speed: parseFloat(item.nilai_speed) || 0,
-              timestamp: formattedDate,
+              timestamp: `${tanggalStr}\n${jamStr}`,
+              labelArr: [tanggalStr, jamStr],
               rawDate: date
             };
           })
@@ -263,7 +262,8 @@ const Feeds = () => {
           turbidity: formattedData.map(d => d.turbidity),
           speed: formattedData.map(d => d.speed),
           timestamps: formattedData.map(d => d.timestamp),
-          lastTimestamp: formattedData[0]?.timestamp || null
+          lastTimestamp: formattedData[0]?.timestamp || null,
+          labelArrs: formattedData.map(d => d.labelArr),
         });
 
         // Reset pagination ke halaman pertama saat lokasi atau time range berubah
@@ -298,7 +298,7 @@ const Feeds = () => {
   }, [selectedLocation, selectedTimeRange]);
 
   // Get paginated data
-  const getPageData = (dataArray, timestampsArray, chartType) => {
+  const getPageData = (dataArray, timestampsArray, chartType, labelArrsArray) => {
     const page = currentPages[chartType] || 1;
     const startIndex = (page - 1) * dataPerPage;
     const endIndex = Math.min(startIndex + dataPerPage, dataArray.length);
@@ -308,20 +308,21 @@ const Feeds = () => {
         data: [],
         labels: Array(dataPerPage).fill("").map((_, i) => (i + 1).toString()),
         tooltipLabels: [],
+        labelArrs: [],
       };
     }
 
-    // Data sudah terurut dari terbaru ke terlama
     return {
       data: dataArray.slice(startIndex, endIndex),
       labels: timestampsArray.slice(startIndex, endIndex),
       tooltipLabels: timestampsArray.slice(startIndex, endIndex),
+      labelArrs: labelArrsArray ? labelArrsArray.slice(startIndex, endIndex) : [],
     };
   };
 
   // Chart data template
   const dataTemplate = (label, dataArray, chartType) => {
-    const pageData = getPageData(dataArray, sensorData.timestamps, chartType);
+    const pageData = getPageData(dataArray, sensorData.timestamps, chartType, sensorData.labelArrs);
     
     const chartColors = {
       accel_x: "#FF6384",
@@ -334,7 +335,7 @@ const Feeds = () => {
     };
 
     return {
-      labels: pageData.labels,
+      labels: pageData.labelArrs.length ? pageData.labelArrs : pageData.labels,
       datasets: [
         {
           label,
@@ -479,17 +480,18 @@ const Feeds = () => {
           label: function(context) {
             const value = context.raw;
             const chartType = context.dataset.label.toLowerCase();
+            const rounded = typeof value === 'number' ? value.toFixed(2) : value;
             
             if (chartType.includes('ph')) {
-              return `pH: ${value}`;
+              return `pH: ${rounded}`;
             } else if (chartType.includes('temperature')) {
-              return `Suhu: ${value}°C`;
+              return `Suhu: ${rounded}°C`;
             } else if (chartType.includes('turbidity')) {
-              return `Kekeruhan: ${value} NTU`;
+              return `Kekeruhan: ${rounded} NTU`;
             } else if (chartType.includes('accel') || chartType.includes('speed')) {
-              return `Nilai: ${value} m/s`;
+              return `Nilai: ${rounded} m/s`;
             }
-            return `Nilai: ${value}`;
+            return `Nilai: ${rounded}`;
           }
         },
       },
@@ -504,22 +506,20 @@ const Feeds = () => {
           min: 0,
           max: 14,
           ticks: {
-            stepSize: 1,
+            stepSize: 4,
             callback: function (value) {
-              return value.toFixed(1);
+              return value.toFixed(2);
             },
           },
-          // title: {
-          //   display: true,
-          //   text: 'pH Level'
-          // }
         },
-        // x: {
-        //   title: {
-        //     display: true,
-        //     text: 'Waktu'
-        //   }
-        // }
+        x: {
+          ticks: {
+            maxRotation: 60,
+            minRotation: 45,
+            font: { size: 11 },
+            color: '#333',
+          },
+        },
       },
     },
     temperature: {
@@ -531,45 +531,41 @@ const Feeds = () => {
           ticks: {
             stepSize: 20,
             callback: function (value) {
-              return `${value}°C`;
+              return `${value.toFixed(2)}°C`;
             },
           },
-          // title: {
-          //   display: true,
-          //   text: 'Suhu (°C)'
-          // }
         },
-        // x: {
-        //   title: {
-        //     display: true,
-        //     text: 'Waktu'
-        //   }
-        // }
+        x: {
+          ticks: {
+            maxRotation: 60,
+            minRotation: 45,
+            font: { size: 11 },
+            color: '#333',
+          },
+        },
       },
     },
     turbidity: {
       ...baseOptions,
       scales: {
         y: {
-          min: 0,
-          max: 1000,
+          min: -5,
+          max: 100,
           ticks: {
-            stepSize: 100,
+            stepSize: 10,
             callback: function (value) {
-              return `${value} NTU`;
+              return `${value.toFixed(2)} NTU`;
             },
           },
-          // title: {
-          //   display: true,
-          //   text: 'Kekeruhan (NTU)'
-          // }
         },
-        // x: {
-        //   title: {
-        //     display: true,
-        //     text: 'Waktu'
-        //   }
-        // }
+        x: {
+          ticks: {
+            maxRotation: 60,
+            minRotation: 45,
+            font: { size: 11 },
+            color: '#333',
+          },
+        },
       },
     },
     acceleration: {
@@ -581,45 +577,41 @@ const Feeds = () => {
           ticks: {
             stepSize: 2,
             callback: function (value) {
-              return `${value} m/s²`;
+              return `${value.toFixed(2)} m/s²`;
             },
           },
-          // title: {
-          //   display: true,
-          //   text: 'Percepatan (m/s²)'
-          // }
         },
-        // x: {
-        //   title: {
-        //     display: true,
-        //     text: 'Waktu'
-        //   }
-        // }
+        x: {
+          ticks: {
+            maxRotation: 60,
+            minRotation: 45,
+            font: { size: 11 },
+            color: '#333',
+          },
+        },
       },
     },
     speed: {
       ...baseOptions,
       scales: {
         y: {
-          min: -12,
+          min: -5,
           max: 20,
           ticks: {
-            stepSize: 4,
+            stepSize: 5,
             callback: function (value) {
-              return `${value} m/s`;
+              return `${value.toFixed(2)} m/s`;
             },
           },
-          // title: {
-          //   display: true,
-          //   text: 'Kecepatan (m/s)'
-          // }
         },
-        // x: {
-        //   title: {
-        //     display: true,
-        //     text: 'Waktu'
-        //   }
-        // }
+        x: {
+          ticks: {
+            maxRotation: 60,
+            minRotation: 45,
+            font: { size: 11 },
+            color: '#333',
+          },
+        },
       },
     },
   };
@@ -655,7 +647,11 @@ const Feeds = () => {
           </div>
         ) : (
           <>
-            <Line data={dataTemplate(label, dataArray, chartType)} options={options} />
+            <div style={{overflowX: 'auto', width: '100%'}}>
+              <div style={{minWidth: Math.max(dataArray.length * 10, 1000)}}>
+                 <Line data={dataTemplate(label, dataArray, chartType)} options={options} height={150} />
+              </div>
+            </div>
             <PaginationControls chartType={chartType} />
           </>
         )}
@@ -679,14 +675,14 @@ const Feeds = () => {
   // Fungsi untuk mengkonversi data ke format CSV
   const convertToCSV = (data) => {
     const headers = [
-      'Tanggal',
-      'Accelerometer X (m/s²)',
-      'Accelerometer Y (m/s²)',
-      'Accelerometer Z (m/s²)',
+      'Timestamp',
+      'Accelerometer X',
+      'Accelerometer Y',
+      'Accelerometer Z',
       'pH',
-      'Suhu Air (°C)',
-      'Tingkat Kekeruhan (NTU)',
-      'Kecepatan Alat (m/s)'
+      'Temperature',
+      'Turbidity',
+      'Kecepatan'
     ];
 
     const rows = data.map(item => [
@@ -708,7 +704,8 @@ const Feeds = () => {
   // Fungsi untuk mengunduh data
   const handleDownload = async () => {
     try {
-      setIsLoading(true);
+      setIsDownloading(true);
+      // Notifikasi akan dihandle di bagian render dengan isDownloading
       const baseUrl = `${port}data_combined`;
       let apiUrl = '';
       
@@ -726,17 +723,29 @@ const Feeds = () => {
         throw new Error('Invalid data format received from API');
       }
 
+      // Sort data dari terbaru ke terlama sebelum mapping
+      const sortedData = result.data.slice().sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+
       // Format data untuk CSV
-      const formattedData = result.data.map(item => ({
-        timestamp: new Date(item.tanggal).toLocaleString('id-ID', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }),
+      const formattedData = sortedData.map(item => {
+        const date = new Date(item.tanggal);
+        // UTC format manual tanpa UTC di belakang
+        const hariList = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const bulanList = [
+          'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+          'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+        const hari = hariList[date.getUTCDay()];
+        const tgl = date.getUTCDate();
+        const bulan = bulanList[date.getUTCMonth()];
+        const tahun = date.getUTCFullYear();
+        const jam = String(date.getUTCHours()).padStart(2, '0');
+        const menit = String(date.getUTCMinutes()).padStart(2, '0');
+        const detik = String(date.getUTCSeconds()).padStart(2, '0');
+        const formattedDateUTC = `${hari}, ${tgl} ${bulan} ${tahun} ${jam}:${menit}:${detik}`;
+
+        return {
+          timestamp: formattedDateUTC,
         accel_x: parseFloat(item.nilai_accel_x) || 0,
         accel_y: parseFloat(item.nilai_accel_y) || 0,
         accel_z: parseFloat(item.nilai_accel_z) || 0,
@@ -744,7 +753,8 @@ const Feeds = () => {
         temperature: parseFloat(item.nilai_temperature) || 0,
         turbidity: parseFloat(item.nilai_turbidity) || 0,
         speed: parseFloat(item.nilai_speed) || 0
-      }));
+        };
+      });
 
       // Konversi ke CSV
       const csv = convertToCSV(formattedData);
@@ -770,35 +780,82 @@ const Feeds = () => {
       console.error("Error downloading data:", error);
       alert("Gagal mengunduh data. Silakan coba lagi.");
     } finally {
-      setIsLoading(false);
+      // Delay 3 detik sebelum notifikasi hilang
+      setTimeout(() => setIsDownloading(false), 1000);
     }
   };
 
   return (
     <div className="analisis-container">
+      {/* Notifikasi custom download */}
+      {isDownloading && (
+        <div style={{
+          position: 'fixed',
+          top: 30,
+          right: 30,
+          zIndex: 9999,
+          background: '#fff',
+          border: '1.5px solid #dc3545',
+          borderRadius: 12,
+          boxShadow: '0 4px 24px rgba(220,53,69,0.10)',
+          padding: '18px 28px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          minWidth: 260,
+          fontWeight: 500,
+          color: '#dc3545',
+          fontSize: 16,
+          animation: 'fadeInNotif 0.3s',
+        }}>
+          <span className="spinner-border spinner-border-sm" style={{marginRight: 12, color: '#dc3545'}}></span>
+          Sedang menyiapkan file, mohon tunggu...
+        </div>
+      )}
+      <style>{`
+        @keyframes fadeInNotif {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .spinner-border {
+          display: inline-block;
+          width: 1.5rem;
+          height: 1.5rem;
+          vertical-align: text-bottom;
+          border: 0.25em solid #f3f3f3;
+          border-right-color: #dc3545;
+          border-radius: 50%;
+          animation: spinner-border 0.75s linear infinite;
+        }
+        @keyframes spinner-border {
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
       {/* <h1 className="analisis-title">Statistik Data Langsung</h1> */}
       
       <div className="mb-4 d-flex justify-content-between align-items-center feeds-toolbar-responsive">
         <div className="d-flex gap-3 feeds-toolbar-btn-group">
           <Button 
-            variant="outline-danger" 
+            variant="danger"
             onClick={() => setShowModal(true)}
             style={{ 
               minWidth: '120px',
-              height: '32px',
-              fontSize: '13px',
-              padding: '0 10px',
+              height: '36px',
+              fontSize: '14px',
+              padding: '0 16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              borderWidth: '1px',
-              borderColor: '#dc3545',
-              color: '#dc3545',
-              backgroundColor: 'transparent',
-              transition: 'all 0.2s ease-in-out'
+              gap: '8px',
+              backgroundColor: '#e62f2a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 8px rgba(220,53,69,0.08)'
             }}
-            className="hover-effect feeds-toolbar-btn"
+            className="feeds-toolbar-btn"
           >
             <BsGeoAlt style={{ fontSize: '14px' }} />
             {selectedLocation === "semua" 
@@ -808,38 +865,56 @@ const Feeds = () => {
 
           {/* Tombol untuk memilih waktu (modal) */}
           <Button
-            variant="outline-danger"
+            variant="danger"
             onClick={() => setShowTimeModal(true)}
-            style={{ minWidth: '120px', height: '32px', fontSize: '13px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderWidth: '1px', borderColor: '#dc3545', color: '#dc3545', backgroundColor: 'transparent', transition: 'all 0.2s ease-in-out' }}
-            className="hover-effect feeds-toolbar-btn"
+            style={{
+              minWidth: '120px',
+              height: '36px',
+              fontSize: '14px',
+              padding: '0 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              backgroundColor: '#e62f2a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 8px rgba(220,53,69,0.08)'
+            }}
+            className="feeds-toolbar-btn"
           >
             <BsClock style={{ fontSize: '14px' }} />
             {TIME_RANGES.find(r => r.value === selectedTimeRange)?.label || "Pilih Waktu"}
           </Button>
 
           <Button 
-            variant="outline-danger" 
+            variant="danger"
             onClick={handleDownload}
-            disabled={isLoading}
+            disabled={isDownloading}
             style={{ 
-              minWidth: '90px',
-              height: '32px',
-              fontSize: '13px',
-              padding: '0 10px',
+              minWidth: '120px',
+              height: '36px',
+              fontSize: '14px',
+              padding: '0 16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              borderWidth: '1px',
-              borderColor: '#dc3545',
-              color: '#dc3545',
-              backgroundColor: 'transparent',
-              transition: 'all 0.2s ease-in-out'
+              gap: '8px',
+              backgroundColor: '#e62f2a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 8px rgba(220,53,69,0.08)'
             }}
-            className="hover-effect feeds-toolbar-btn"
+            className="feeds-toolbar-btn"
           >
             <FaDownload style={{ fontSize: '14px' }} />
-            {isLoading ? 'Unduh...' : 'Unduh CSV'}
+            {isDownloading ? 'Unduh...' : 'Unduh Data'}
           </Button>
         </div>
       </div>
@@ -883,6 +958,11 @@ const Feeds = () => {
               padding-left: 28px !important;
               padding-right: 10px !important;
             }
+          }
+          .feeds-toolbar-btn:hover, .feeds-toolbar-btn:focus {
+            background-color: #b71c1c !important;
+            color: #fff !important;
+            box-shadow: 0 4px 16px rgba(220,53,69,0.15);
           }
         `}
       </style>
@@ -1020,13 +1100,17 @@ const Feeds = () => {
           <Modal.Title>Pilih Rentang Waktu</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="d-flex flex-column gap-2">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '10px',
+          }}>
             {TIME_RANGES.map(range => (
               <Button
                 key={range.value}
                 variant={selectedTimeRange === range.value ? "danger" : "outline-danger"}
                 size="sm"
-                style={{ borderRadius: '8px', fontWeight: 'bold' }}
+                style={{ borderRadius: '8px', fontWeight: 'bold', width: '100%' }}
                 onClick={() => {
                   setSelectedTimeRange(range.value);
                   setShowTimeModal(false);

@@ -217,11 +217,11 @@ const Dashboard = () => {
 
   // Fungsi untuk menilai kualitas air berdasarkan parameter sensor
   const assessWaterQuality = (properties) => {
-    // Parameter untuk penilaian kualitas air (nilai standar)
+    // Standar threshold sama seperti mobile (ANOMALY_THRESHOLDS)
     const standards = {
-      ph: { min: 6.5, max: 8.5 }, // Range pH yang baik untuk air
-      turbidity: { max: 5 }, // Batas kekeruhan yang baik (NTU)
-      temperature: { min: 20, max: 35 } // Range suhu normal (°C)
+      ph: { min: 6.0, max: 8.5 }, // Range pH
+      turbidity: { min: 0, max: 5 }, // Range turbidity
+      temperature: { min: 20, max: 30 } // Range suhu
     };
 
     let score = 0;
@@ -237,9 +237,9 @@ const Dashboard = () => {
 
     // Cek kekeruhan (turbidity)
     const turbidity = isNaN(parseFloat(properties.nilai_turbidity)) ? 0 : parseFloat(properties.nilai_turbidity);
-    if (turbidity <= standards.turbidity.max) {
+    if (turbidity >= standards.turbidity.min && turbidity <= standards.turbidity.max) {
       score += 2; // Kekeruhan baik
-    } else if (turbidity <= standards.turbidity.max * 2) {
+    } else if (turbidity > standards.turbidity.max && turbidity <= standards.turbidity.max + 15) {
       score += 1; // Kekeruhan kurang ideal
     }
 
@@ -278,7 +278,7 @@ const Dashboard = () => {
     const jam = String(tanggal.getUTCHours()).padStart(2, '0');
     const menit = String(tanggal.getUTCMinutes()).padStart(2, '0');
     const detik = String(tanggal.getUTCSeconds()).padStart(2, '0');
-    const tanggalString = `${hari}, ${tgl} ${bulan} ${tahun} ${jam}:${menit}:${detik} UTC`;
+    const tanggalString = `${hari}, ${tgl} ${bulan} ${tahun} ${jam}:${menit}:${detik} WIB`;
 
     // Ensure valid numbers with fallbacks
     const ph = isNaN(parseFloat(properties.nilai_ph)) ? 0 : parseFloat(properties.nilai_ph);

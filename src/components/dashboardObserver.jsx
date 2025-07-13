@@ -184,24 +184,6 @@ const DashboardAdmin = () => {
     const [locationCurrentPage, setLocationCurrentPage] = useState(1);
     const locationPageSize = 10;
 
-    const menuItems = [
-        {
-            key: 'anomali',
-            icon: <ExclamationCircleOutlined />,
-            label: 'Anomali Sensor',
-        },
-        {
-            key: 'locations',
-            icon: <EnvironmentOutlined />,
-            label: 'Lokasi Penelitian',
-        },
-        {
-            key: 'statistics',
-            icon: <BarChartOutlined />,
-            label: 'Statistik',
-        }
-    ];
-
     useEffect(() => {
         const initializeData = async () => {
             try {
@@ -1061,7 +1043,7 @@ const DashboardAdmin = () => {
                                 <p><strong>Nama Sungai:</strong> {selectedStatLocation.name}</p>
                                 <p><strong>Alamat:</strong> {selectedStatLocation.address}</p>
                                 <p><strong>Tanggal:</strong> {new Date(selectedStatLocation.date).toLocaleDateString('id-ID', {
-                                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
                                 })}</p>
                             </div>
                         ) : null}
@@ -1318,7 +1300,7 @@ const DashboardAdmin = () => {
                         `}</style>
                         <div className="offcanvas-body p-0">
                             <div className="list-group list-group-flush">
-                                {menuItems.map(item => (
+                                {items.map(item => (
                                     <button
                                         key={`menu-item-${item.key}`}
                                         className={`list-group-item list-group-item-action d-flex align-items-center ${activeMenu === item.key ? 'active' : ''}`}
@@ -1631,7 +1613,7 @@ function SensorDataTableWeb({ data }) {
                 const t = row.timestamp || row.tanggal;
                 if (!t) return '-';
                 const d = new Date(t);
-                return d.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                return d.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' });
             },
         },
         {
@@ -1720,6 +1702,9 @@ function SensorTrendsChartWeb({ data }) {
     const formatted = (Array.isArray(data) ? data : []).map(item => {
         const t = item.timestamp || item.tanggal;
         const date = t ? new Date(t) : new Date();
+        // Format label multi-baris: array [tanggal, waktu]
+        const tanggal = date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+        const waktu = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'UTC' });
         return {
             accel_x: parseFloat(item.nilai_accel_x ?? item.accel_x) || 0,
             accel_y: parseFloat(item.nilai_accel_y ?? item.accel_y) || 0,
@@ -1728,10 +1713,8 @@ function SensorTrendsChartWeb({ data }) {
             temperature: parseFloat(item.nilai_temperature ?? item.temperature) || 0,
             turbidity: parseFloat(item.nilai_turbidity ?? item.turbidity) || 0,
             speed: parseFloat(item.nilai_speed ?? item.speed) || 0,
-            timestamp: t ? date.toLocaleString('id-ID', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-            }) : '-',
+            // label multi-baris untuk chartjs: array [tanggal, waktu]
+            timestamp: t ? [tanggal, waktu] : ['-'],
             rawDate: t ? date : new Date(0)
         };
     }).sort((a, b) => b.rawDate - a.rawDate);

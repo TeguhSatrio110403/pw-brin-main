@@ -472,19 +472,21 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
         width={500}
         centered
         destroyOnClose
+        bodyStyle={{ padding: '16px 16px 12px 16px' }} // padding lebih kecil
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleFormSubmit}
           initialValues={initialValues}
+          style={{ gap: 12, display: 'flex', flexDirection: 'column' }} // jarak antar form item lebih kecil
         >
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 16 }}>
             <div style={{ 
               background: '#f0f9ff', 
               border: '1px solid #bae6fd', 
               borderRadius: 8, 
-              padding: 12,
+              padding: 10,
               display: 'flex',
               alignItems: 'center',
               gap: 8
@@ -502,8 +504,8 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
               background: '#fef2f2', 
               border: '1px solid #fecaca', 
               borderRadius: 8, 
-              padding: 12,
-              marginBottom: 16,
+              padding: 10,
+              marginBottom: 12,
               display: 'flex',
               alignItems: 'center',
               gap: 8
@@ -526,6 +528,7 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
               { required: true, message: 'Nilai pH harus diisi' },
               { type: 'number', min: inputValidation.ph.min, max: inputValidation.ph.max, message: `pH harus antara ${inputValidation.ph.min} - ${inputValidation.ph.max}` }
             ]}
+            style={{ marginBottom: 12 }}
           >
             <InputNumber
               style={{ width: '100%', borderRadius: 8 }}
@@ -550,6 +553,7 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
               { required: true, message: 'Nilai temperatur harus diisi' },
               { type: 'number', min: inputValidation.temperature.min, max: inputValidation.temperature.max, message: `Temperatur harus antara ${inputValidation.temperature.min} - ${inputValidation.temperature.max}°C` }
             ]}
+            style={{ marginBottom: 12 }}
           >
             <InputNumber
               style={{ width: '100%', borderRadius: 8 }}
@@ -574,6 +578,7 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
               { required: true, message: 'Nilai kekeruhan harus diisi' },
               { type: 'number', min: inputValidation.turbidity.min, max: inputValidation.turbidity.max, message: `Kekeruhan harus antara ${inputValidation.turbidity.min} - ${inputValidation.turbidity.max} NTU` }
             ]}
+            style={{ marginBottom: 12 }}
           >
             <InputNumber
               style={{ width: '100%', borderRadius: 8 }}
@@ -585,7 +590,7 @@ const AnomaliDetail = ({ anomali, lokasi, lokasiPenelitian, onBack, onDelete, on
             />
           </Form.Item>
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
             <Button 
               onClick={handleModalClose} 
               style={{ flex: 1, borderRadius: 8 }}

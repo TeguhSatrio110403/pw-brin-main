@@ -485,11 +485,13 @@ const AnalisisModal = ({ show, onHide, analisis, onFocusMarker }) => {
                               <td
                                 style={{
                                   color:
-                                    data.nilai_turbidity > 0 && data.nilai_turbidity < 15
-                                      ? '#28a745' // hijau
-                                      : data.nilai_turbidity > 15 && data.nilai_turbidity < 100
-                                      ? '#ffc107' // kuning
-                                      : '#dc3545', // merah
+                                    data.nilai_turbidity === 0
+                                      ? '#28a745' // hijau jika 0
+                                      : data.nilai_turbidity > 0 && data.nilai_turbidity < 15
+                                        ? '#28a745' // hijau
+                                        : data.nilai_turbidity > 15 && data.nilai_turbidity < 100
+                                          ? '#ffc107' // kuning
+                                          : '#dc3545', // merah
                                   fontWeight: 'bold',
                                 }}
                               >
