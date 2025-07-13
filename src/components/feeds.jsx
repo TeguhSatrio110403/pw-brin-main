@@ -127,7 +127,7 @@ const Feeds = () => {
         }
         apiUrl += `&page=${currentPage}`;
 
-        console.log('Fetching data from:', apiUrl);
+        // console.log('Fetching data from:', apiUrl);
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`API responded with status ${response.status}`);
 
@@ -189,12 +189,12 @@ const Feeds = () => {
           apiUrl += `&range=${rangeFormat}`;
         }
 
-        console.log('API URL:', apiUrl);
+        // console.log('API URL:', apiUrl);
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`API responded with status ${response.status}`);
         
         const result = await response.json();
-        console.log('API Response:', result);
+        // console.log('API Response:', result);
 
         if (!result.success || !result.data) {
           throw new Error('Invalid data format received from API');
@@ -250,7 +250,7 @@ const Feeds = () => {
           .filter(item => filterDataByTimeRange(item.rawDate))
           .sort((a, b) => b.rawDate - a.rawDate);
 
-        console.log('Filtered data:', formattedData);
+        // console.log('Filtered data:', formattedData);
 
         // Update state dengan data yang sudah diformat
         setSensorData({
