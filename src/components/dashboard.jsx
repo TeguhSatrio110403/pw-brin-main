@@ -676,15 +676,16 @@ const Dashboard = () => {
                     <div style={{ fontSize: '12px', color: '#666' }}>Tanggal Pencatatan</div>
                     <div style={{ fontWeight: 'bold', color: '#333' }}>
                       {(() => {
+                        console.log(location.date);
                         const dateObj = new Date(location.date);
                         // Format: YYYY-MM-DD HH:mm:ss UTC
-                        const y = dateObj.getUTCFullYear();
-                        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-                        const d = String(dateObj.getUTCDate()).padStart(2, '0');
-                        const hh = String(dateObj.getUTCHours()).padStart(2, '0');
-                        const mm = String(dateObj.getUTCMinutes()).padStart(2, '0');
-                        const ss = String(dateObj.getUTCSeconds()).padStart(2, '0');
-                        return `${y}-${m}-${d} ${hh}:${mm}:${ss} UTC`;
+                        const y = dateObj.getFullYear();
+                        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const d = String(dateObj.getDate()).padStart(2, '0');
+                        const hh = String(dateObj.getHours()).padStart(2, '0');
+                        const mm = String(dateObj.getMinutes()).padStart(2, '0');
+                        const ss = String(dateObj.getSeconds()).padStart(2, '0');
+                        return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
                       })()}
                     </div>
                   </div>
