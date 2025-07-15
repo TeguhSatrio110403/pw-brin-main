@@ -508,8 +508,8 @@ const DashboardAdmin = () => {
                     const data = {
                         id: item.id_klasifikasi, // id utama anomali
                         location: item.data_lokasi?.nama_sungai || '-',
-                        date: new Date(item.tanggal).toLocaleDateString('id-ID'),
-                        time: new Date(item.tanggal).toLocaleTimeString('id-ID'),
+                        date: new Date(item.tanggal).toLocaleDateString('id-ID', { timeZone: 'UTC' }),
+                        time: new Date(item.tanggal).toLocaleTimeString('id-ID', { timeZone: 'UTC' }),
                         nilai_turbidity: item.data_turbidity?.nilai_turbidity,
                         nilai_ph: item.data_ph?.nilai_ph,
                         nilai_temperature: item.data_temperature?.nilai_temperature
