@@ -103,6 +103,10 @@ const Dashboard = () => {
     const saved = localStorage.getItem('monitoringLocation');
     return saved ? JSON.parse(saved) : null;
   });
+  // Add connection state tracking
+  const [isConnected, setIsConnected] = useState(false);
+  // Add state to track last broadcast time
+  const [lastBroadcast, setLastBroadcast] = useState(0);
   
   const socketRef = useRef(null);
   const mapRef = useRef(null);
@@ -424,21 +428,38 @@ const Dashboard = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    socketRef.current = io(port);
+    // Configure socket with settings better suited for Vercel deployment
+    socketRef.current = io(port, {
+      transports: ['websocket'], // Use WebSocket transport only
+      reconnectionAttempts: 5,    // Limit reconnection attempts
+      reconnectionDelay: 1000,    // Start with 1s delay
+      reconnectionDelayMax: 5000, // Max 5s delay between retries
+      timeout: 10000,             // 10s connection timeout
+      pingTimeout: 10000,         // 10s ping timeout
+      pingInterval: 25000         // 25s ping interval
+    });
 
     socketRef.current.on('connect', () => {
       console.log('Connected to WebSocket server');
+      setIsConnected(true);
       
       // When connecting, check if we have a monitoring location to broadcast
       if (monitoringLocation) {
-        console.log('Broadcasting saved monitoring location on connect:', monitoringLocation);
-        socketRef.current.emit('updateLocation', {
-          id_lokasi: monitoringLocation.id, 
-          nama_sungai: monitoringLocation.name,
-          alamat: monitoringLocation.address,
-          latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
-          longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
-        });
+        // Prevent immediate rebroadcast
+        const now = Date.now();
+        if (now - lastBroadcast > 5000) {
+          console.log('Broadcasting saved monitoring location on connect:', monitoringLocation);
+          setLastBroadcast(now);
+          socketRef.current.emit('updateLocation', {
+            id_lokasi: monitoringLocation.id, 
+            nama_sungai: monitoringLocation.name,
+            alamat: monitoringLocation.address,
+            latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
+            longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
+          });
+        } else {
+          console.log('Skipping broadcast, too soon since last broadcast');
+        }
       }
     });
 
@@ -477,6 +498,17 @@ const Dashboard = () => {
           console.warn('Invalid coordinates in location update:', data);
           return;
         }
+
+        // Check if we already have this location with same coordinates
+        if (monitoringLocation && 
+            monitoringLocation.id === locationId && 
+            ((monitoringLocation.lat === latitude && monitoringLocation.lon === longitude) || 
+             (monitoringLocation.position && 
+              monitoringLocation.position[0] === latitude && 
+              monitoringLocation.position[1] === longitude))) {
+          console.log('Skipping duplicate location update');
+          return;
+        }
         
         // Create a properly formatted location object
         const updatedLocation = {
@@ -496,6 +528,9 @@ const Dashboard = () => {
         if (!locationExists) {
           setWaterLocations(prev => [...prev, updatedLocation]);
         }
+        
+        // Record broadcast time
+        setLastBroadcast(Date.now());
         
         // Visual feedback for user
         const notification = document.createElement('div');
@@ -568,9 +603,11 @@ const Dashboard = () => {
     socketRef.current.on('update-location', fetchWaterLocations);
     socketRef.current.on('delete-location', fetchWaterLocations);
     
-    // Handle disconnect with reconnection attempt
+    // Handle disconnect
     socketRef.current.on('disconnect', () => {
       console.warn('WebSocket disconnected, attempting to reconnect...');
+      setIsConnected(false);
+      
       const notification = document.createElement('div');
       notification.style.cssText = `
         position: fixed;
@@ -585,8 +622,7 @@ const Dashboard = () => {
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         animation: fadeInOut 4s ease-in-out;
       `;
-      notification.textContent = "Koneksi ke server terputus. Mencoba menyambung kembali...";
-      document.body.appendChild(notification);
+      
       setTimeout(() => {
         notification.remove();
       }, 4000);
@@ -595,6 +631,8 @@ const Dashboard = () => {
     // Handle reconnect
     socketRef.current.on('reconnect', (attemptNumber) => {
       console.log(`Reconnected to server after ${attemptNumber} attempts`);
+      setIsConnected(true);
+      
       const notification = document.createElement('div');
       notification.style.cssText = `
         position: fixed;
@@ -616,7 +654,42 @@ const Dashboard = () => {
       }, 4000);
       
       // Re-broadcast monitoring location if exists
-      if (monitoringLocation && monitoringLocation.id !== monitoringLocation.id) {
+      if (monitoringLocation) {
+        // Add rate limiting
+        const now = Date.now();
+        if (now - lastBroadcast > 5000) {
+          console.log('Re-broadcasting monitoring location after reconnect');
+          setLastBroadcast(now);
+          socketRef.current.emit('updateLocation', {
+            id_lokasi: monitoringLocation.id,
+            nama_sungai: monitoringLocation.name,
+            alamat: monitoringLocation.address,
+            latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
+            longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
+          });
+        } else {
+          console.log('Skipping location broadcast, too soon after previous broadcast');
+        }
+      }
+    });
+
+    return () => {
+      if (socketRef.current) {
+        console.log('Disconnecting socket on component unmount');
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [monitoringLocation?.id, lastBroadcast]);
+
+  // Separate effect to handle monitoring location changes
+  useEffect(() => {
+    if (monitoringLocation && socketRef.current && isConnected) {
+      // Apply rate limiting to prevent broadcast loops
+      const now = Date.now();
+      if (now - lastBroadcast > 5000) {
+        console.log('Broadcasting monitoring location change:', monitoringLocation);
+        setLastBroadcast(now);
         socketRef.current.emit('updateLocation', {
           id_lokasi: monitoringLocation.id,
           nama_sungai: monitoringLocation.name,
@@ -624,27 +697,11 @@ const Dashboard = () => {
           latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
           longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
         });
+      } else {
+        console.log('Skipping location broadcast due to rate limiting');
       }
-    });
-
-    return () => {
-      socketRef.current.disconnect();
-    };
-  }, []);
-
-  // Separate effect to handle monitoring location changes
-  useEffect(() => {
-    if (monitoringLocation && socketRef.current) {
-      console.log('Broadcasting monitoring location change:', monitoringLocation);
-      socketRef.current.emit('updateLocation', {
-        id_lokasi: monitoringLocation.id,
-        nama_sungai: monitoringLocation.name,
-        alamat: monitoringLocation.address,
-        latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
-        longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
-      });
     }
-  }, [monitoringLocation]);
+  }, [monitoringLocation, isConnected, lastBroadcast]);
 
   // Initial data fetch
   useEffect(() => {
