@@ -191,7 +191,7 @@ const NavBar = () => {
                   <Nav className="right-section">
                     <Button
                       variant="danger"
-                      href="/download"
+                      href="https://drive.google.com/drive/folders/1b0CzwIZ6b-NI1rSQXc9xSiJahkOkyUen?usp=sharing"
                       className="unduh-aplikasi-button"
                       onClick={() => setShowNavModal(false)}
                     >
@@ -251,7 +251,7 @@ const NavBar = () => {
                 {isObserver && (
                   <Nav.Item>
                     <Link to="/dashboardObserver" className="nav-link item-list py-3" onClick={() => setShowNavModal(false)}>
-                      <i className="bi bi-eye-fill me-2"></i>Beranda
+                      <i className="bi bi-gear-fill me-2"></i>Beranda
                     </Link>
                   </Nav.Item>
                 )}
@@ -277,7 +277,7 @@ const NavBar = () => {
                 <div className="mt-3">
                   <Button
                     variant="danger"
-                    href="/download"
+                    href="https://drive.google.com/drive/folders/1b0CzwIZ6b-NI1rSQXc9xSiJahkOkyUen?usp=sharing"
                     className="btn btn-danger unduh-aplikasi-button w-100"
                     onClick={() => setShowNavModal(false)}
                   >
