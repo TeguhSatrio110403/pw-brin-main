@@ -428,6 +428,18 @@ const Dashboard = () => {
 
     socketRef.current.on('connect', () => {
       console.log('Connected to WebSocket server');
+      
+      // When connecting, check if we have a monitoring location to broadcast
+      if (monitoringLocation) {
+        console.log('Broadcasting saved monitoring location on connect:', monitoringLocation);
+        socketRef.current.emit('updateLocation', {
+          id_lokasi: monitoringLocation.id, 
+          nama_sungai: monitoringLocation.name,
+          alamat: monitoringLocation.address,
+          latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
+          longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
+        });
+      }
     });
 
     socketRef.current.on('mqttData', (data) => {
@@ -436,23 +448,203 @@ const Dashboard = () => {
         setSensorData(prev => [...prev, data.message]);
         setLatestSensorData(data.message); // Tambahkan ini agar odometer dan marker IoT sinkron
       
-      // Update posisi IoT jika ada data lokasi
+        // Update posisi IoT jika ada data lokasi
         if (data.message.latitude && data.message.longitude) {
           const cleanLat = data.message.latitude;
           const cleanLon = data.message.longitude;
-        setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
+          setIotPosition([parseFloat(cleanLat), parseFloat(cleanLon)]);
         }
       }
+    });
+
+    // Improved location update handler from mobile devices
+    socketRef.current.on('updateLocation', (data) => {
+      console.log('📍 Received location update from mobile device:', data);
+      
+      // Validate incoming data
+      if (!data || !data.latitude || !data.longitude) {
+        console.warn('Received invalid location data:', data);
+        return;
+      }
+      
+      try {
+        const locationId = parseInt(data.id_lokasi);
+        const latitude = parseFloat(data.latitude);
+        const longitude = parseFloat(data.longitude);
+        
+        // Skip if invalid coordinates
+        if (isNaN(latitude) || isNaN(longitude) || latitude === 0 || longitude === 0) {
+          console.warn('Invalid coordinates in location update:', data);
+          return;
+        }
+        
+        // Create a properly formatted location object
+        const updatedLocation = {
+          id: locationId,
+          name: data.nama_sungai || 'Lokasi Sungai',
+          position: [latitude, longitude],
+          address: data.alamat || data.address || 'Alamat tidak tersedia',
+          date: new Date().toLocaleString()
+        };
+        
+        // Set as monitoring location
+        setMonitoringLocation(updatedLocation);
+        localStorage.setItem('monitoringLocation', JSON.stringify(updatedLocation));
+        
+        // Add to water locations if not exists
+        const locationExists = waterLocations.some(loc => loc.id === locationId);
+        if (!locationExists) {
+          setWaterLocations(prev => [...prev, updatedLocation]);
+        }
+        
+        // Visual feedback for user
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: #3498db;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 8px;
+          z-index: 1000;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+          animation: fadeInOut 4s ease-in-out;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-weight: 500;
+        `;
+        notification.innerHTML = `
+          <i class="bi bi-broadcast" style="font-size: 18px;"></i>
+          Menerima update lokasi monitoring dari perangkat mobile: "${updatedLocation.name}"
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+          notification.remove();
+        }, 4000);
+      } catch (error) {
+        console.error('Error processing location update:', error);
+      }
+    });
+
+    // Handle clear location event from mobile
+    socketRef.current.on('clearLocation', () => {
+      console.log('📍 Received clear location command from mobile device');
+      setMonitoringLocation(null);
+      localStorage.removeItem('monitoringLocation');
+      
+      // Visual feedback
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #e74c3c;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: fadeInOut 4s ease-in-out;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+      `;
+      notification.innerHTML = `
+        <i class="bi bi-x-circle-fill" style="font-size: 18px;"></i>
+        Lokasi monitoring telah dihapus dari perangkat mobile
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        notification.remove();
+      }, 4000);
     });
 
     socketRef.current.on('new-location', fetchWaterLocations);
     socketRef.current.on('update-location', fetchWaterLocations);
     socketRef.current.on('delete-location', fetchWaterLocations);
+    
+    // Handle disconnect with reconnection attempt
+    socketRef.current.on('disconnect', () => {
+      console.warn('WebSocket disconnected, attempting to reconnect...');
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #e74c3c;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: fadeInOut 4s ease-in-out;
+      `;
+      notification.textContent = "Koneksi ke server terputus. Mencoba menyambung kembali...";
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        notification.remove();
+      }, 4000);
+    });
+
+    // Handle reconnect
+    socketRef.current.on('reconnect', (attemptNumber) => {
+      console.log(`Reconnected to server after ${attemptNumber} attempts`);
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #2ecc71;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: fadeInOut 4s ease-in-out;
+      `;
+      notification.textContent = "Koneksi ke server berhasil disambungkan kembali!";
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        notification.remove();
+      }, 4000);
+      
+      // Re-broadcast monitoring location if exists
+      if (monitoringLocation) {
+        socketRef.current.emit('updateLocation', {
+          id_lokasi: monitoringLocation.id,
+          nama_sungai: monitoringLocation.name,
+          alamat: monitoringLocation.address,
+          latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
+          longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
+        });
+      }
+    });
 
     return () => {
       socketRef.current.disconnect();
     };
   }, []);
+
+  // Separate effect to handle monitoring location changes
+  useEffect(() => {
+    if (monitoringLocation && socketRef.current) {
+      console.log('Broadcasting monitoring location change:', monitoringLocation);
+      socketRef.current.emit('updateLocation', {
+        id_lokasi: monitoringLocation.id,
+        nama_sungai: monitoringLocation.name,
+        alamat: monitoringLocation.address,
+        latitude: monitoringLocation.lat ? monitoringLocation.lat.toString() : (monitoringLocation.position ? monitoringLocation.position[0].toString() : ''),
+        longitude: monitoringLocation.lon ? monitoringLocation.lon.toString() : (monitoringLocation.position ? monitoringLocation.position[1].toString() : '')
+      });
+    }
+  }, [monitoringLocation]);
 
   // Initial data fetch
   useEffect(() => {
