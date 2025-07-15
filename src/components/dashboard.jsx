@@ -616,7 +616,7 @@ const Dashboard = () => {
       }, 4000);
       
       // Re-broadcast monitoring location if exists
-      if (monitoringLocation) {
+      if (monitoringLocation && monitoringLocation.id !== monitoringLocation.id) {
         socketRef.current.emit('updateLocation', {
           id_lokasi: monitoringLocation.id,
           nama_sungai: monitoringLocation.name,
