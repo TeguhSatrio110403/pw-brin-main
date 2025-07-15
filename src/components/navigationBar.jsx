@@ -173,7 +173,7 @@ const NavBar = () => {
                           to="/dashboardObserver" 
                           onClick={() => setShowNavModal(false)}
                         >
-                          <i className="bi bi-eye-fill me-2"></i>Beranda
+                          <i className="bi bi-gear-fill me-2"></i>Beranda
                         </Dropdown.Item>
                       )}
                       
