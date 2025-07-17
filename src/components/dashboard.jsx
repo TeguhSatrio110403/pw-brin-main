@@ -2788,16 +2788,16 @@ const Dashboard = () => {
                         <button
                           className="btn btn-primary"
                           onClick={() => handleSetMonitoring(item)}
-                          disabled={isMonitoring(item)}
+                          disabled={isMonitoring(item) || isGuest}
                           style={{
                             width: '100%',
                             marginTop: '10px',
                             borderRadius: '100px',
-                            backgroundColor: isMonitoring(item) ? '#bdbdbd' : '#1e88e5',
+                            backgroundColor: isMonitoring(item) ? '#bdbdbd' : (isGuest ? '#bdbdbd' : '#1e88e5'),
                             padding: '10px',
                             color: 'white',
                             border: 'none',
-                            cursor: isMonitoring(item) ? 'not-allowed' : 'pointer',
+                            cursor: isMonitoring(item) || isGuest ? 'not-allowed' : 'pointer',
                             fontWeight: 'bold',
                             display: 'flex',
                             alignItems: 'center',
